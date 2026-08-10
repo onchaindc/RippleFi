@@ -1,0 +1,35 @@
+{
+    "name": "@ripplefi/contracts",
+    "version": "0.1.0",
+    "private": true,
+    "description": "RippleFI smart contracts for Flare and Coston2",
+    "license": "MIT",
+    "scripts": {
+        "clean": "hardhat clean",
+        "compile": "hardhat compile",
+        "test": "hardhat test",
+        "inspect:strategies": "hardhat run scripts/inspectYieldStrategies.ts --network coston2",
+        "inspect:strategy:flare": "hardhat run scripts/inspectYieldStrategies.ts --network flare",
+        "prepare:flare": "hardhat run scripts/prepareRippleFIVault.ts --network flare",
+        "deploy:coston2": "hardhat run scripts/deployRippleFIVault.ts --network coston2",
+        "deploy:flare": "hardhat run scripts/deployRippleFIVault.ts --network flare"
+    },
+    "dependencies": {
+        "@flarenetwork/flare-periphery-contracts": "0.1.37",
+        "@openzeppelin/contracts": "^5.2.0",
+        "ethers": "^6.4.0"
+    },
+    "devDependencies": {
+        "@nomicfoundation/hardhat-ethers": "^3.0.0",
+        "@nomicfoundation/hardhat-verify": "^2.0.0",
+        "@types/node": "^22.0.0",
+        "dotenv": "^16.4.7",
+        "hardhat": "^2.22.18",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.3"
+    },
+    "engines": {
+        "node": ">=20"
+    },
+    "packageManager": "pnpm@11.9.0"
+}

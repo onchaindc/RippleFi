@@ -1,0 +1,5 @@
+services/hyperliquid-signer/.env
+services/hyperliquid-signer/.venv/
+services/hyperliquid-signer/data/
+services/hyperliquid-signer/**/__pycache__/
+services/hyperliquid-signer/.pytest_cache/

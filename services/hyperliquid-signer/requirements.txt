@@ -1,0 +1,4 @@
+fastapi==0.116.1
+cryptography>=45,<47
+hyperliquid-python-sdk==0.24.0
+uvicorn==0.35.0

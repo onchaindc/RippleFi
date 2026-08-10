@@ -1,0 +1,21 @@
+{
+  "name": "RippleFI",
+  "short_name": "RippleFI",
+  "description": "Deposit FXRP into RippleFI on Flare Coston2 and keep your position visible, liquid, and ready to use.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080b0f",
+  "theme_color": "#080b0f",
+  "icons": [
+    {
+      "src": "/brand/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
