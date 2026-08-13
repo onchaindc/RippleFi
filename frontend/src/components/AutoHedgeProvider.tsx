@@ -729,6 +729,18 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         nonce,
         signature: { r: signed.r, s: signed.s, v: signed.v },
       });
+      // Also print the exact wire payload as one string so a console paste
+      // shows the full action without expanding collapsed objects.
+      console.info(
+        "[RippleFI] Hyperliquid approval payload",
+        JSON.stringify({
+          action,
+          masterAccount: link.masterAccount,
+          network: link.network,
+          nonce,
+          signature: { r: signed.r, s: signed.s, v: signed.v },
+        }),
+      );
       const { body, raw, status } = await postHyperliquidAction(
         link,
         action,
