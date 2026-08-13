@@ -158,24 +158,55 @@ async function postHyperliquidAction(
     method: "POST",
     signal: AbortSignal.timeout(30_000),
   });
-  const body = (await response.json().catch(() => null)) as {
+  const raw = await response.text();
+  let body: {
     response?: unknown;
     status?: string;
-  } | null;
-  return { body, status: response.status };
+    error?: unknown;
+  } | null = null;
+  try {
+    body = JSON.parse(raw) as {
+      response?: unknown;
+      status?: string;
+      error?: unknown;
+    };
+  } catch {
+    // Non-JSON error bodies (rate limits, proxies, ...) are surfaced raw.
+  }
+  return { body, raw, status: response.status };
 }
 
-// Hyperliquid reports rejections as {status:"err", response:"<reason>"}.
+// Hyperliquid reports rejections as {status:"err", response:"<reason>"} or
+// HTTP 400 {error:"<reason>"}; anything else falls back to the raw body so
+// the exact reason always reaches the UI.
 function hyperliquidRejection(
-  body: { response?: unknown; status?: string } | null,
+  body: { response?: unknown; status?: string; error?: unknown } | null,
+  raw: string,
 ) {
   if (typeof body?.response === "string" && body.response.length > 0) {
     return body.response;
   }
+  if (typeof body?.error === "string" && body.error.length > 0) {
+    return body.error;
+  }
   if (body?.status === "err") {
     return "Hyperliquid rejected the request.";
   }
+  const trimmed = raw.trim();
+  if (trimmed && trimmed !== "null") {
+    return trimmed.slice(0, 300);
+  }
   return null;
+}
+
+// Hyperliquid blocks every action (including agent approval) until the
+// account has received its first deposit. Give the user the exact fix.
+function depositHint(rejection: string, network: HyperliquidNetwork) {
+  return /must deposit/i.test(rejection)
+    ? network === "mainnet"
+      ? " Deposit USDC into your Hyperliquid account first (app.hyperliquid.xyz → Deposit)."
+      : " The account must first hold USDC on Hyperliquid testnet - claim 1,000 mock USDC at https://app.hyperliquid-testnet.xyz/drip after depositing on mainnet from the same wallet."
+    : "";
 }
 
 // Sign any Hyperliquid off-chain L1 action (approveAgent, withdraw3, ...) with
@@ -681,7 +712,7 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
           },
         },
       );
-      const { body, status } = await postHyperliquidAction(
+      const { body, raw, status } = await postHyperliquidAction(
         link,
         {
           agentAddress: link.apiWalletAddress,
@@ -699,12 +730,12 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         signatureChainId: signed.signatureChainId,
         status,
       });
-      const rejection = hyperliquidRejection(body);
+      const rejection = hyperliquidRejection(body, raw);
       if (rejection || body?.status !== "ok") {
         throw new Error(
           rejection
-            ? `Hyperliquid rejected the approval: ${rejection}`
-            : `Hyperliquid did not accept the protection approval (HTTP ${status}).`,
+            ? `Hyperliquid rejected the approval: ${rejection}${depositHint(rejection, link.network)}`
+            : `Hyperliquid did not accept the protection approval (HTTP ${status})${raw.trim() ? `: ${raw.trim().slice(0, 300)}` : ""}.`,
         );
       }
     },
@@ -748,7 +779,7 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
           },
         },
       );
-      const { body, status } = await postHyperliquidAction(
+      const { body, raw, status } = await postHyperliquidAction(
         link,
         {
           amount: "0",
@@ -767,12 +798,12 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         signatureChainId: signed.signatureChainId,
         status,
       });
-      const rejection = hyperliquidRejection(body);
+      const rejection = hyperliquidRejection(body, raw);
       if (rejection || body?.status !== "ok") {
         throw new Error(
           rejection
-            ? `Hyperliquid could not remove the existing agent ${agentAddress}: ${rejection}`
-            : `Hyperliquid could not remove the existing agent ${agentAddress} (HTTP ${status}).`,
+            ? `Hyperliquid could not remove the existing agent ${agentAddress}: ${rejection}${depositHint(rejection, link.network)}`
+            : `Hyperliquid could not remove the existing agent ${agentAddress} (HTTP ${status})${raw.trim() ? `: ${raw.trim().slice(0, 300)}` : ""}.`,
         );
       }
     },
