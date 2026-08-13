@@ -51,6 +51,31 @@ type ArmRuleInput = {
   triggerType: AutoHedgeTriggerType;
 };
 
+// Wallet signatures are user-paced: a popup can stay unopened or unanswered for
+// minutes. A hard timeout turns that silent stall into an explicit error the
+// UI can show, instead of leaving the button stuck on "Waiting for approval".
+const WALLET_SIGNATURE_TIMEOUT_MS = 120_000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 type AutoHedgeContextValue = {
   arm: (input: ArmRuleInput) => Promise<void>;
   chainId: SupportedChainId;
@@ -440,6 +465,15 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         );
       }
       setHyperliquidLink(link);
+      if (method === "PUT") {
+        const persisted =
+          link.status === "authorized" && link.authorizedAt !== null;
+        console.info("[RippleFI] Hyperliquid authorizedAt persisted", {
+          authorizedAt: link.authorizedAt,
+          persisted,
+          status: link.status,
+        });
+      }
       return link;
     },
     [activeChainId, address, ensureSession],
@@ -455,49 +489,93 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
           "Connect the wallet that owns this Hyperliquid account.",
         );
       }
+      console.info("[RippleFI] Hyperliquid approve clicked", {
+        appChainId: activeChainId,
+        link: {
+          apiWalletAddress: link.apiWalletAddress,
+          network: link.network,
+        },
+        wallet: address,
+      });
+
       // approveAgent is an off-chain Hyperliquid L1 action, not an EVM
-      // transaction: nothing is broadcast to the chain we sign on. The domain
-      // must therefore carry the wallet's *current* chain, or the wallet
-      // rejects the request with "chainId should be same as current chainId".
-      // Hyperliquid rebuilds the same domain from the signatureChainId we send
-      // in the action, so any chain verifies as long as the two agree. Never
-      // fall back to an app-side chain id here: guessing wrong reintroduces
-      // exactly that mismatch.
-      const walletChainId = walletClient.chain?.id ?? chainId;
-      if (!walletChainId) {
+      // transaction: nothing is broadcast to the chain we sign on. The EIP-712
+      // domain must carry the chain the wallet is *actually on at sign time*,
+      // or the wallet rejects the request with
+      //   InvalidParamsRpcError: chainId should be same as current chainId
+      // and Hyperliquid rebuilds the domain from the signatureChainId we send
+      // in the action, so the two must agree exactly.
+      //
+      // wagmi's tracked chain (useAccount().chainId / walletClient.chain) can
+      // be stale or defaulted - e.g. after the user switches networks inside
+      // the wallet itself, or a cold hydration race - so it must never be
+      // trusted here. eth_chainId reads the live provider state, which is the
+      // only value the wallet will accept in the domain.
+      let walletChainId: number;
+      try {
+        walletChainId = await walletClient.getChainId();
+      } catch (error) {
+        console.error(
+          "[RippleFI] Hyperliquid wallet chain read failed",
+          error,
+        );
         throw new Error(
           "Your wallet's network could not be detected. Reconnect and try again.",
         );
       }
       const signatureChainId = toHex(walletChainId);
+      if (walletChainId !== activeChainId) {
+        console.warn(
+          "[RippleFI] Hyperliquid approve wallet chain differs from app chain",
+          {
+            appChainId: activeChainId,
+            walletChainId,
+          },
+        );
+      }
+
       const hyperliquidChain =
         link.network === "mainnet" ? "Mainnet" : "Testnet";
       const agentName = "RippleFI";
       const nonce = Date.now();
-      const signature = await walletClient.signTypedData({
-        account: address,
-        domain: {
-          chainId: walletChainId,
-          name: "HyperliquidSignTransaction",
-          verifyingContract: "0x0000000000000000000000000000000000000000",
-          version: "1",
-        },
-        message: {
-          agentAddress: link.apiWalletAddress,
-          agentName,
-          hyperliquidChain,
-          nonce: BigInt(nonce),
-        },
-        primaryType: "HyperliquidTransaction:ApproveAgent",
-        types: {
-          "HyperliquidTransaction:ApproveAgent": [
-            { name: "hyperliquidChain", type: "string" },
-            { name: "agentAddress", type: "address" },
-            { name: "agentName", type: "string" },
-            { name: "nonce", type: "uint64" },
-          ],
-        },
+
+      console.info("[RippleFI] Hyperliquid signature requested", {
+        domainChainId: walletChainId,
+        signatureChainId,
+        walletChainId,
       });
+      const signature = await withTimeout(
+        walletClient.signTypedData({
+          account: address,
+          domain: {
+            chainId: walletChainId,
+            name: "HyperliquidSignTransaction",
+            verifyingContract: "0x0000000000000000000000000000000000000000",
+            version: "1",
+          },
+          message: {
+            agentAddress: link.apiWalletAddress,
+            agentName,
+            hyperliquidChain,
+            nonce: BigInt(nonce),
+          },
+          primaryType: "HyperliquidTransaction:ApproveAgent",
+          types: {
+            "HyperliquidTransaction:ApproveAgent": [
+              { name: "hyperliquidChain", type: "string" },
+              { name: "agentAddress", type: "address" },
+              { name: "agentName", type: "string" },
+              { name: "nonce", type: "uint64" },
+            ],
+          },
+        }),
+        WALLET_SIGNATURE_TIMEOUT_MS,
+        "The wallet request didn't open or wasn't answered in time. Open your wallet and try again.",
+      );
+      console.info("[RippleFI] Hyperliquid signature received", {
+        walletChainId,
+      });
+
       const parsedSignature = parseSignature(signature);
       const recovery =
         parsedSignature.v !== undefined
@@ -507,52 +585,67 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         link.network === "mainnet"
           ? "https://api.hyperliquid.xyz/exchange"
           : "https://api.hyperliquid-testnet.xyz/exchange";
-      const response = await fetch(endpoint, {
-        body: JSON.stringify({
-          action: {
-            agentAddress: link.apiWalletAddress,
-            agentName,
-            hyperliquidChain,
+      let statusCode = 0;
+      let body: { response?: unknown; status?: string } | null = null;
+      try {
+        const response = await fetch(endpoint, {
+          body: JSON.stringify({
+            action: {
+              agentAddress: link.apiWalletAddress,
+              agentName,
+              hyperliquidChain,
+              nonce,
+              signatureChainId,
+              type: "approveAgent",
+            },
             nonce,
-            signatureChainId,
-            type: "approveAgent",
-          },
-          nonce,
-          signature: {
-            r: parsedSignature.r,
-            s: parsedSignature.s,
-            v: recovery,
-          },
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const body = (await response.json().catch(() => null)) as {
-        response?: unknown;
-        status?: string;
-      } | null;
-      if (!response.ok || body?.status !== "ok") {
-        console.error("Hyperliquid approval failed", {
+            signature: {
+              r: parsedSignature.r,
+              s: parsedSignature.s,
+              v: recovery,
+            },
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+          signal: AbortSignal.timeout(30_000),
+        });
+        statusCode = response.status;
+        body = (await response.json().catch(() => null)) as {
+          response?: unknown;
+          status?: string;
+        } | null;
+        console.info("[RippleFI] Hyperliquid approval response", {
           body,
           network: link.network,
           signatureChainId,
-          status: response.status,
+          status: statusCode,
         });
-        // Hyperliquid reports rejections as {status:"err", response:"<reason>"}.
-        const reported =
-          typeof body?.response === "string"
-            ? body.response
-            : body?.status === "err"
-              ? "Hyperliquid rejected the approval."
-              : null;
+        if (response.ok && body?.status === "ok") {
+          return;
+        }
+      } catch (error) {
+        console.error(
+          "[RippleFI] Hyperliquid approval request failed",
+          { error, network: link.network },
+        );
         throw new Error(
-          reported
-            ? `Hyperliquid rejected the approval: ${reported}`
-            : `Hyperliquid did not accept the protection approval (HTTP ${response.status}).`,
+          "Hyperliquid did not respond to the approval. Check your connection and try again.",
         );
       }
+      // Hyperliquid reports rejections as {status:"err", response:"<reason>"}.
+      const reported =
+        typeof body?.response === "string"
+          ? body.response
+          : body?.status === "err"
+            ? "Hyperliquid rejected the approval."
+            : null;
+      throw new Error(
+        reported
+          ? `Hyperliquid rejected the approval: ${reported}`
+          : `Hyperliquid did not accept the protection approval (HTTP ${statusCode}).`,
+      );
     },
-    [address, chainId, walletClient],
+    [activeChainId, address, walletClient],
   );
 
   const enableHyperliquid = useCallback(async () => {
@@ -563,7 +656,12 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         return;
       }
       await approveHyperliquidAgent(link);
-      await requestHyperliquidLink("PUT");
+      const approved = await requestHyperliquidLink("PUT");
+      if (approved.status !== "authorized" || approved.authorizedAt === null) {
+        throw new Error(
+          "Hyperliquid accepted the approval, but it could not be saved. Try again.",
+        );
+      }
     } finally {
       setIsHyperliquidBusy(false);
     }

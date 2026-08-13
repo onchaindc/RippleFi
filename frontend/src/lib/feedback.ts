@@ -29,7 +29,15 @@ export function productErrorMessage(
   fallback = "Something went wrong. Please try again.",
 ) {
   const message = rawErrorMessage(error);
-  const normalized = message.toLowerCase();
+  // viem RPC errors keep the human-readable cause in `details` (e.g. the
+  // wallet's "chainId should be same as current chainId"), while `message`
+  // only carries the generic InvalidParamsRpcError text. Match on both so the
+  // real reason reaches the UI.
+  const details =
+    error && typeof error === "object" && "details" in error
+      ? String((error as { details?: unknown }).details || "")
+      : "";
+  const normalized = `${message} ${details}`.trim().toLowerCase();
   const minimumSize = minimumProtectionSize(message);
   const market = executionMarket(message);
   const cause = executionCause(message);
@@ -145,6 +153,14 @@ export function productErrorMessage(
   }
   if (normalized.includes("already pending")) {
     return "Wallet request already open.";
+  }
+
+  if (
+    normalized.includes("chainid should be same") ||
+    normalized.includes("chain id should be same") ||
+    normalized.includes("same as current chain")
+  ) {
+    return "Your wallet is on a different network than this request. Switch your wallet to Flare Mainnet or Coston2 and try again.";
   }
 
   if (
