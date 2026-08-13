@@ -15,6 +15,8 @@ import {
   parseSignature,
   toHex,
   type Address,
+  type SignTypedDataParameters,
+  type WalletClient,
 } from "viem";
 import {
   useAccount,
@@ -41,6 +43,7 @@ import {
 import {
   isHyperliquidLink,
   type HyperliquidLink,
+  type HyperliquidNetwork,
 } from "@/lib/hyperliquidLink";
 
 type ArmRuleInput = {
@@ -74,6 +77,173 @@ function withTimeout<T>(
       },
     );
   });
+}
+
+// Hyperliquid gives each account a limited number of API-wallet (agent)
+// slots. When the slot is already occupied - e.g. by a stale RippleFI agent
+// left over from an earlier approve that Hyperliquid accepted but the app
+// never confirmed - approving again fails with "Extra agent already used".
+// The account's registered agents are readable through the info endpoint, and
+// an agent is removed with an off-chain withdraw3 L1 action (amount 0,
+// destination = the agent address) signed exactly like approveAgent.
+const HL_AGENT_NAME = "RippleFI";
+
+type HyperliquidAgentRecord = {
+  address: Address;
+  name: string;
+};
+
+function hyperliquidInfoUrl(network: HyperliquidNetwork) {
+  return network === "mainnet"
+    ? "https://api.hyperliquid.xyz/info"
+    : "https://api.hyperliquid-testnet.xyz/info";
+}
+
+function hyperliquidExchangeUrl(network: HyperliquidNetwork) {
+  return network === "mainnet"
+    ? "https://api.hyperliquid.xyz/exchange"
+    : "https://api.hyperliquid-testnet.xyz/exchange";
+}
+
+async function fetchHyperliquidAgents(
+  link: HyperliquidLink,
+): Promise<HyperliquidAgentRecord[] | null> {
+  try {
+    const response = await fetch(hyperliquidInfoUrl(link.network), {
+      body: JSON.stringify({
+        type: "extraAgents",
+        user: link.masterAccount,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as unknown;
+    if (!Array.isArray(body)) {
+      return null;
+    }
+    const agents: HyperliquidAgentRecord[] = [];
+    for (const entry of body) {
+      if (!entry || typeof entry !== "object") {
+        continue;
+      }
+      const record = entry as Record<string, unknown>;
+      if (typeof record.address !== "string" || !isAddress(record.address)) {
+        continue;
+      }
+      agents.push({
+        address: record.address.toLowerCase() as Address,
+        name: typeof record.name === "string" ? record.name : "",
+      });
+    }
+    return agents;
+  } catch (error) {
+    console.warn("[RippleFI] Hyperliquid extraAgents query failed", error);
+    return null;
+  }
+}
+
+async function postHyperliquidAction(
+  link: HyperliquidLink,
+  action: Record<string, unknown>,
+  signature: { r: string; s: string; v: number },
+  nonce: number,
+) {
+  const response = await fetch(hyperliquidExchangeUrl(link.network), {
+    body: JSON.stringify({ action, nonce, signature }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+    signal: AbortSignal.timeout(30_000),
+  });
+  const body = (await response.json().catch(() => null)) as {
+    response?: unknown;
+    status?: string;
+  } | null;
+  return { body, status: response.status };
+}
+
+// Hyperliquid reports rejections as {status:"err", response:"<reason>"}.
+function hyperliquidRejection(
+  body: { response?: unknown; status?: string } | null,
+) {
+  if (typeof body?.response === "string" && body.response.length > 0) {
+    return body.response;
+  }
+  if (body?.status === "err") {
+    return "Hyperliquid rejected the request.";
+  }
+  return null;
+}
+
+// Sign any Hyperliquid off-chain L1 action (approveAgent, withdraw3, ...) with
+// the wallet's LIVE chain. See approveHyperliquidAgent for why the tracked
+// wagmi chain is never used here.
+async function signHyperliquidAction(
+  walletClient: WalletClient,
+  address: Address,
+  expectedChainId: number,
+  request: {
+    message: Record<string, unknown>;
+    primaryType: string;
+    types: Record<string, readonly { name: string; type: string }[]>;
+  },
+) {
+  let walletChainId: number;
+  try {
+    walletChainId = await walletClient.getChainId();
+  } catch (error) {
+    console.error("[RippleFI] Hyperliquid wallet chain read failed", error);
+    throw new Error(
+      "Your wallet's network could not be detected. Reconnect and try again.",
+    );
+  }
+  const signatureChainId = toHex(walletChainId);
+  if (walletChainId !== expectedChainId) {
+    console.warn(
+      "[RippleFI] Hyperliquid wallet chain differs from app chain",
+      { appChainId: expectedChainId, walletChainId },
+    );
+  }
+  console.info("[RippleFI] Hyperliquid signature requested", {
+    domainChainId: walletChainId,
+    signatureChainId,
+    walletChainId,
+  });
+  const signature = await withTimeout(
+    walletClient.signTypedData({
+      account: address,
+      domain: {
+        chainId: walletChainId,
+        name: "HyperliquidSignTransaction",
+        verifyingContract: "0x0000000000000000000000000000000000000000",
+        version: "1",
+      },
+      message: request.message,
+      primaryType: request.primaryType,
+      types: request.types,
+      // The typed-data shapes are fixed Hyperliquid literals provided by the
+      // callers; viem's strict per-type inference cannot follow the dynamic
+      // request object, so cast to its parameter type.
+    } as unknown as SignTypedDataParameters),
+    WALLET_SIGNATURE_TIMEOUT_MS,
+    "The wallet request didn't open or wasn't answered in time. Open your wallet and try again.",
+  );
+  console.info("[RippleFI] Hyperliquid signature received", {
+    walletChainId,
+  });
+  const parsed = parseSignature(signature);
+  return {
+    r: parsed.r,
+    s: parsed.s,
+    v:
+      parsed.v !== undefined
+        ? Number(parsed.v)
+        : (parsed.yParity ?? 0) + 27,
+    signatureChainId,
+  };
 }
 
 type AutoHedgeContextValue = {
@@ -479,6 +649,136 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
     [activeChainId, address, ensureSession],
   );
 
+  const approveAgentAction = useCallback(
+    async (
+      link: HyperliquidLink,
+      hyperliquidChain: "Mainnet" | "Testnet",
+      agentName: string,
+    ) => {
+      if (!address || !walletClient) {
+        throw new Error("Connect your wallet to approve protection.");
+      }
+      const nonce = Date.now();
+      const signed = await signHyperliquidAction(
+        walletClient,
+        address,
+        activeChainId,
+        {
+          message: {
+            agentAddress: link.apiWalletAddress,
+            agentName,
+            hyperliquidChain,
+            nonce: BigInt(nonce),
+          },
+          primaryType: "HyperliquidTransaction:ApproveAgent",
+          types: {
+            "HyperliquidTransaction:ApproveAgent": [
+              { name: "hyperliquidChain", type: "string" },
+              { name: "agentAddress", type: "address" },
+              { name: "agentName", type: "string" },
+              { name: "nonce", type: "uint64" },
+            ],
+          },
+        },
+      );
+      const { body, status } = await postHyperliquidAction(
+        link,
+        {
+          agentAddress: link.apiWalletAddress,
+          agentName,
+          hyperliquidChain,
+          signatureChainId: signed.signatureChainId,
+          type: "approveAgent",
+        },
+        { r: signed.r, s: signed.s, v: signed.v },
+        nonce,
+      );
+      console.info("[RippleFI] Hyperliquid approval response", {
+        body,
+        network: link.network,
+        signatureChainId: signed.signatureChainId,
+        status,
+      });
+      const rejection = hyperliquidRejection(body);
+      if (rejection || body?.status !== "ok") {
+        throw new Error(
+          rejection
+            ? `Hyperliquid rejected the approval: ${rejection}`
+            : `Hyperliquid did not accept the protection approval (HTTP ${status}).`,
+        );
+      }
+    },
+    [activeChainId, address, walletClient],
+  );
+
+  // Hyperliquid removes an agent when a withdraw3 L1 action is sent with
+  // amount 0 and the agent's address as destination. The master account signs
+  // it just like approveAgent - off-chain, nothing is broadcast on our chain.
+  const removeHyperliquidAgent = useCallback(
+    async (link: HyperliquidLink, agentAddress: Address) => {
+      if (!address || !walletClient) {
+        throw new Error("Connect your wallet to update protection.");
+      }
+      const hyperliquidChain =
+        link.network === "mainnet" ? "Mainnet" : "Testnet";
+      const nonce = Date.now();
+      console.info("[RippleFI] Hyperliquid agent removal clicked", {
+        agentAddress,
+        network: link.network,
+      });
+      const signed = await signHyperliquidAction(
+        walletClient,
+        address,
+        activeChainId,
+        {
+          message: {
+            amount: "0",
+            destination: agentAddress,
+            hyperliquidChain,
+            time: BigInt(nonce),
+          },
+          primaryType: "HyperliquidTransaction:Withdraw",
+          types: {
+            "HyperliquidTransaction:Withdraw": [
+              { name: "hyperliquidChain", type: "string" },
+              { name: "destination", type: "string" },
+              { name: "amount", type: "string" },
+              { name: "time", type: "uint64" },
+            ],
+          },
+        },
+      );
+      const { body, status } = await postHyperliquidAction(
+        link,
+        {
+          amount: "0",
+          destination: agentAddress,
+          hyperliquidChain,
+          signatureChainId: signed.signatureChainId,
+          time: nonce,
+          type: "withdraw3",
+        },
+        { r: signed.r, s: signed.s, v: signed.v },
+        nonce,
+      );
+      console.info("[RippleFI] Hyperliquid agent removal response", {
+        agentAddress,
+        body,
+        signatureChainId: signed.signatureChainId,
+        status,
+      });
+      const rejection = hyperliquidRejection(body);
+      if (rejection || body?.status !== "ok") {
+        throw new Error(
+          rejection
+            ? `Hyperliquid could not remove the existing agent ${agentAddress}: ${rejection}`
+            : `Hyperliquid could not remove the existing agent ${agentAddress} (HTTP ${status}).`,
+        );
+      }
+    },
+    [activeChainId, address, walletClient],
+  );
+
   const approveHyperliquidAgent = useCallback(
     async (link: HyperliquidLink) => {
       if (!address || !walletClient) {
@@ -498,6 +798,9 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         wallet: address,
       });
 
+      const hyperliquidChain =
+        link.network === "mainnet" ? "Mainnet" : "Testnet";
+
       // approveAgent is an off-chain Hyperliquid L1 action, not an EVM
       // transaction: nothing is broadcast to the chain we sign on. The EIP-712
       // domain must carry the chain the wallet is *actually on at sign time*,
@@ -511,141 +814,77 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
       // the wallet itself, or a cold hydration race - so it must never be
       // trusted here. eth_chainId reads the live provider state, which is the
       // only value the wallet will accept in the domain.
-      let walletChainId: number;
-      try {
-        walletChainId = await walletClient.getChainId();
-      } catch (error) {
-        console.error(
-          "[RippleFI] Hyperliquid wallet chain read failed",
-          error,
-        );
-        throw new Error(
-          "Your wallet's network could not be detected. Reconnect and try again.",
-        );
-      }
-      const signatureChainId = toHex(walletChainId);
-      if (walletChainId !== activeChainId) {
-        console.warn(
-          "[RippleFI] Hyperliquid approve wallet chain differs from app chain",
-          {
-            appChainId: activeChainId,
-            walletChainId,
-          },
-        );
-      }
 
-      const hyperliquidChain =
-        link.network === "mainnet" ? "Mainnet" : "Testnet";
-      const agentName = "RippleFI";
-      const nonce = Date.now();
-
-      console.info("[RippleFI] Hyperliquid signature requested", {
-        domainChainId: walletChainId,
-        signatureChainId,
-        walletChainId,
+      // Hyperliquid caps the agents per account, and an earlier approve that
+      // Hyperliquid accepted but the app never confirmed leaves a stale agent
+      // registered - approving again then fails with "Extra agent already
+      // used" (exactly what the production console showed). Read the account's
+      // current agents so we can (a) skip signing entirely when our agent is
+      // already approved, and (b) remove a stale agent before approving.
+      const existingAgents = await fetchHyperliquidAgents(link);
+      console.info("[RippleFI] Hyperliquid existing agents", {
+        agents: existingAgents,
+        masterAccount: link.masterAccount,
+        network: link.network,
       });
-      const signature = await withTimeout(
-        walletClient.signTypedData({
-          account: address,
-          domain: {
-            chainId: walletChainId,
-            name: "HyperliquidSignTransaction",
-            verifyingContract: "0x0000000000000000000000000000000000000000",
-            version: "1",
-          },
-          message: {
-            agentAddress: link.apiWalletAddress,
-            agentName,
-            hyperliquidChain,
-            nonce: BigInt(nonce),
-          },
-          primaryType: "HyperliquidTransaction:ApproveAgent",
-          types: {
-            "HyperliquidTransaction:ApproveAgent": [
-              { name: "hyperliquidChain", type: "string" },
-              { name: "agentAddress", type: "address" },
-              { name: "agentName", type: "string" },
-              { name: "nonce", type: "uint64" },
-            ],
-          },
-        }),
-        WALLET_SIGNATURE_TIMEOUT_MS,
-        "The wallet request didn't open or wasn't answered in time. Open your wallet and try again.",
+
+      if (
+        existingAgents?.some(
+          (agent) =>
+            agent.address === link.apiWalletAddress.toLowerCase(),
+        )
+      ) {
+        console.info(
+          "[RippleFI] Hyperliquid agent already approved; skipping signature",
+          { apiWalletAddress: link.apiWalletAddress },
+        );
+        return;
+      }
+
+      // A stale RippleFI-named agent blocks same-name replacement on some
+      // networks, so remove it before approving.
+      const staleAgent = existingAgents?.find(
+        (agent) =>
+          agent.name === HL_AGENT_NAME &&
+          agent.address !== link.apiWalletAddress.toLowerCase(),
       );
-      console.info("[RippleFI] Hyperliquid signature received", {
-        walletChainId,
-      });
+      if (staleAgent) {
+        await removeHyperliquidAgent(link, staleAgent.address);
+      }
 
-      const parsedSignature = parseSignature(signature);
-      const recovery =
-        parsedSignature.v !== undefined
-          ? Number(parsedSignature.v)
-          : (parsedSignature.yParity ?? 0) + 27;
-      const endpoint =
-        link.network === "mainnet"
-          ? "https://api.hyperliquid.xyz/exchange"
-          : "https://api.hyperliquid-testnet.xyz/exchange";
-      let statusCode = 0;
-      let body: { response?: unknown; status?: string } | null = null;
       try {
-        const response = await fetch(endpoint, {
-          body: JSON.stringify({
-            action: {
-              agentAddress: link.apiWalletAddress,
-              agentName,
-              hyperliquidChain,
-              nonce,
-              signatureChainId,
-              type: "approveAgent",
-            },
-            nonce,
-            signature: {
-              r: parsedSignature.r,
-              s: parsedSignature.s,
-              v: recovery,
-            },
-          }),
-          headers: { "Content-Type": "application/json" },
-          method: "POST",
-          signal: AbortSignal.timeout(30_000),
-        });
-        statusCode = response.status;
-        body = (await response.json().catch(() => null)) as {
-          response?: unknown;
-          status?: string;
-        } | null;
-        console.info("[RippleFI] Hyperliquid approval response", {
-          body,
-          network: link.network,
-          signatureChainId,
-          status: statusCode,
-        });
-        if (response.ok && body?.status === "ok") {
-          return;
+        await approveAgentAction(link, hyperliquidChain, HL_AGENT_NAME);
+      } catch (error) {
+        // The account's extra-agent slot is occupied by an agent we could not
+        // see or replace up front - clear it and retry the approval once.
+        const message = error instanceof Error ? error.message : "";
+        if (message.includes("Extra agent already used")) {
+          const agents =
+            existingAgents ?? (await fetchHyperliquidAgents(link));
+          const conflict = agents?.find(
+            (agent) =>
+              agent.address !== link.apiWalletAddress.toLowerCase(),
+          );
+          if (conflict) {
+            console.warn(
+              "[RippleFI] Hyperliquid approve rejected; removing conflicting agent and retrying",
+              { agentAddress: conflict.address, message },
+            );
+            await removeHyperliquidAgent(link, conflict.address);
+            await approveAgentAction(link, hyperliquidChain, HL_AGENT_NAME);
+            return;
+          }
         }
-      } catch (error) {
-        console.error(
-          "[RippleFI] Hyperliquid approval request failed",
-          { error, network: link.network },
-        );
-        throw new Error(
-          "Hyperliquid did not respond to the approval. Check your connection and try again.",
-        );
+        throw error;
       }
-      // Hyperliquid reports rejections as {status:"err", response:"<reason>"}.
-      const reported =
-        typeof body?.response === "string"
-          ? body.response
-          : body?.status === "err"
-            ? "Hyperliquid rejected the approval."
-            : null;
-      throw new Error(
-        reported
-          ? `Hyperliquid rejected the approval: ${reported}`
-          : `Hyperliquid did not accept the protection approval (HTTP ${statusCode}).`,
-      );
     },
-    [activeChainId, address, walletClient],
+    [
+      activeChainId,
+      address,
+      approveAgentAction,
+      removeHyperliquidAgent,
+      walletClient,
+    ],
   );
 
   const enableHyperliquid = useCallback(async () => {
