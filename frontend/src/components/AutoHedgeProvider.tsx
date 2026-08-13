@@ -712,15 +712,23 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
           },
         },
       );
+      const action = {
+        agentAddress: link.apiWalletAddress,
+        agentName,
+        hyperliquidChain,
+        signatureChainId: signed.signatureChainId,
+        type: "approveAgent",
+      };
+      console.info("[RippleFI] Hyperliquid approval request", {
+        action,
+        masterAccount: link.masterAccount,
+        network: link.network,
+        nonce,
+        signature: { r: signed.r, s: signed.s, v: signed.v },
+      });
       const { body, raw, status } = await postHyperliquidAction(
         link,
-        {
-          agentAddress: link.apiWalletAddress,
-          agentName,
-          hyperliquidChain,
-          signatureChainId: signed.signatureChainId,
-          type: "approveAgent",
-        },
+        action,
         { r: signed.r, s: signed.s, v: signed.v },
         nonce,
       );
