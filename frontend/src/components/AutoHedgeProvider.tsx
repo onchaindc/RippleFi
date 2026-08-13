@@ -716,6 +716,9 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         agentAddress: link.apiWalletAddress,
         agentName,
         hyperliquidChain,
+        // Hyperliquid requires nonce inside the action (must match the outer
+        // nonce); omitting it fails deserialization with HTTP 422.
+        nonce,
         signatureChainId: signed.signatureChainId,
         type: "approveAgent",
       };
