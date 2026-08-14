@@ -151,10 +151,6 @@ export function AutoHedgePanel({
   const currentReference =
     rule?.referencePriceUsd || autoHedge.price.data?.priceUsd || "";
   const normalizedRule = rule ? normalizeAutoHedgeRule(rule) : null;
-  const savedHedgeSizePercent = rule?.hedgeSizePercent;
-  const savedRuleId = rule?.id;
-  const savedThreshold = rule?.threshold;
-  const savedTriggerType = rule?.triggerType;
   const triggerPrice = getTriggerPriceUsd({
     referencePriceUsd: currentReference,
     threshold: rule?.threshold ?? threshold,
@@ -241,21 +237,19 @@ export function AutoHedgePanel({
       ? "Needs approval"
       : "Not connected";
 
+  // Sync the form to the saved rule only when the rule itself changes
+  // (hydration, arm/disarm, wallet switch). Depending on a freshly normalized
+  // object here would re-fire this effect on EVERY render and revert each
+  // click instantly - the "stale buttons" symptom with a connected wallet.
   useEffect(() => {
-    if (
-      !savedRuleId ||
-      savedHedgeSizePercent === undefined ||
-      !savedThreshold ||
-      !savedTriggerType ||
-      !normalizedRule
-    ) {
+    if (!rule) {
       return;
     }
-    const saved = normalizedRule;
+    const saved = normalizeAutoHedgeRule(rule);
     queueMicrotask(() => {
-      setTriggerType(savedTriggerType);
-      setThreshold(savedThreshold);
-      setHedgeSizePercent(savedHedgeSizePercent);
+      setTriggerType(saved.triggerType);
+      setThreshold(saved.threshold);
+      setHedgeSizePercent(saved.hedgeSizePercent);
       setLeverage(saved.leverage);
       setMarginMode(saved.marginMode);
       setTriggerMode(saved.triggerMode);
@@ -269,13 +263,7 @@ export function AutoHedgePanel({
       );
       setRearm(saved.rearm);
     });
-  }, [
-    normalizedRule,
-    savedHedgeSizePercent,
-    savedRuleId,
-    savedThreshold,
-    savedTriggerType,
-  ]);
+  }, [rule]);
 
   async function toggleAutoHedge() {
     setMessage("");
