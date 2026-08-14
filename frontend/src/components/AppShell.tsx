@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   Home,
   Network,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -33,6 +34,7 @@ const navItems: NavItem[] = [
   { href: "/deposit", label: "Deposit", icon: ArrowDownToLine },
   { href: "/withdraw", label: "Withdraw", icon: ArrowUpFromLine },
   { href: "/spend", label: "Spend / Pay", icon: CircleDollarSign },
+  { href: "/auto-hedge", label: "Auto-Hedge", icon: ShieldCheck },
   { href: "/smart-accounts", label: "Smart Accounts", icon: Network },
 ];
 
@@ -101,9 +103,11 @@ function MobileBottomNavigation() {
               </span>
               {label === "Dashboard"
                 ? "Home"
-                : label === "Smart Accounts"
-                  ? "Smart"
-                  : label}
+                : label === "Auto-Hedge"
+                  ? "Hedge"
+                  : label === "Smart Accounts"
+                    ? "Smart"
+                    : label}
             </Link>
           );
         })}

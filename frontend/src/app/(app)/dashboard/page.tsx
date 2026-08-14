@@ -9,7 +9,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import Link from "next/link";
-import { AutoHedgePanel } from "@/components/AutoHedgePanel";
+import { AutoHedgeSummary } from "@/components/AutoHedgeSummary";
 import { BalanceCard } from "@/components/BalanceCard";
 import { TransactionHistory } from "@/components/TransactionHistory";
 import { YieldStrategyPanel } from "@/components/YieldStrategyPanel";
@@ -104,6 +104,8 @@ export default function Home() {
         vault={vault}
       />
 
+      <AutoHedgeSummary />
+
       <section className="mt-7" aria-labelledby="quick-actions-heading">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -178,11 +180,6 @@ export default function Home() {
           </Link>
         </div>
       </section>
-
-      <AutoHedgePanel
-        additionalPositionRaw={firelight.assetsRaw}
-        vault={vault}
-      />
 
       <TransactionHistory vault={vault} />
     </main>
