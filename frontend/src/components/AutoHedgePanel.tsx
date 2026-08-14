@@ -392,13 +392,17 @@ export function AutoHedgePanel({
               rule?.enabled ? "Disable Auto-Hedge" : "Enable Auto-Hedge"
             }
             onClick={toggleAutoHedge}
+            // Disarming must always work, and when arming is blocked the click
+            // should still fire so the reason is shown - a disabled button that
+            // swallows the tap is exactly the "stale" experience users hit when
+            // Hyperliquid approval is pending or the price feed is warming up.
             disabled={
-              autoHedge.isExecuting ||
-              autoHedge.isSyncing ||
-              executionPending ||
               !vault.address ||
-              autoHedge.price.isLoading ||
-              (!rule?.enabled && approvalBlocksArming)
+              (rule?.enabled
+                ? false
+                : autoHedge.isExecuting ||
+                  autoHedge.isSyncing ||
+                  executionPending)
             }
             className={`relative h-7 w-12 shrink-0 rounded-full border transition disabled:cursor-not-allowed disabled:opacity-45 ${
               rule?.enabled
@@ -491,17 +495,28 @@ export function AutoHedgePanel({
       <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
         <div className="px-4 py-5 sm:px-5 sm:py-6">
           {controlsLocked ? (
-            <div className="mb-4 flex items-start gap-2 rounded-md border border-[#f2b84b]/25 bg-[#f2b84b]/[0.06] px-3 py-2.5 text-[11px] leading-4 text-[#c8aa6c]">
+            <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border border-[#f2b84b]/25 bg-[#f2b84b]/[0.06] px-3 py-2.5 text-[11px] leading-4 text-[#c8aa6c]">
               <Lock
                 aria-hidden="true"
                 className="mt-0.5 shrink-0"
                 size={13}
               />
-              <span>
+              <span className="min-w-0 flex-1">
                 {executionPending
-                  ? "Execution is in progress - settings unlock when it settles."
-                  : "Protection is live - toggle Auto-Hedge off to adjust the settings below."}
+                  ? "Execution is in progress — settings unlock when it settles."
+                  : "Protection is live — settings are locked while it runs."}
               </span>
+              {rule?.enabled ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void toggleAutoHedge().catch(() => {});
+                  }}
+                  className="shrink-0 rounded-full border border-[#f2b84b]/40 bg-[#f2b84b]/[0.12] px-3 py-1 font-semibold text-[#f4cd7d] transition hover:bg-[#f2b84b]/[0.2]"
+                >
+                  Disable protection
+                </button>
+              ) : null}
             </div>
           ) : null}
           <div>
