@@ -38,13 +38,13 @@ export async function sendAlertEmail({
   subject: string;
   text: string;
   to: string;
-}) {
+}): Promise<{ ok: boolean; error?: string; status?: number }> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     console.warn(
       "[RippleFI] Alert email skipped: RESEND_API_KEY is not configured.",
     );
-    return false;
+    return { ok: false, error: "RESEND_API_KEY is not set on the server." };
   }
   try {
     const response = await fetch(RESEND_URL, {
@@ -63,15 +63,26 @@ export async function sendAlertEmail({
     });
     if (!response.ok) {
       const raw = await response.text().catch(() => "");
+      // Resend's error body is { name, message, statusCode }.
+      let message = "";
+      try {
+        const parsed = JSON.parse(raw) as { message?: unknown };
+        if (typeof parsed.message === "string") message = parsed.message;
+      } catch {
+        message = raw.slice(0, 300);
+      }
       console.error(
         "[RippleFI] Alert email failed",
-        { status: response.status, raw: raw.slice(0, 300) },
+        { status: response.status, message, raw: raw.slice(0, 300) },
       );
-      return false;
+      return { ok: false, error: message || `HTTP ${response.status}`, status: response.status };
     }
-    return true;
+    return { ok: true };
   } catch (error) {
     console.error("[RippleFI] Alert email failed", error);
-    return false;
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }

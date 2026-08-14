@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const sent = await sendAlertEmail({
+    const result = await sendAlertEmail({
       subject: "RippleFI: your test alert arrived ✅",
       text: [
         "This is a test email from RippleFI's Auto-Hedge alerts.",
@@ -83,9 +83,25 @@ export async function POST(request: Request) {
       to: body.to,
     });
 
-    if (!sent) {
+    if (!result.ok) {
+      const reason = result.error || `HTTP ${result.status ?? "error"}`;
+      let hint: string | null = null;
+      const lower = reason.toLowerCase();
+      if (/401|unauthorized|invalid api key/i.test(lower)) {
+        hint =
+          "Your RESEND_API_KEY was rejected — copy the full key from your Resend dashboard (API Keys) into the Vercel env and redeploy.";
+      } else if (/403|testing emails|own account email/i.test(lower)) {
+        hint =
+          "Resend's sandbox sender (onboarding@resend.dev) only delivers to your Resend account's own email. Verify a domain in Resend, then set ALERT_EMAIL_FROM to it and redeploy to send to any address.";
+      } else if (/domain|verified|dns/i.test(lower)) {
+        hint =
+          "The sender domain isn't verified in Resend yet — add the DNS records Resend shows you, then redeploy.";
+      }
       return NextResponse.json(
-        { error: "Resend rejected the test email. Check the key and sender.", sent: false },
+        {
+          error: hint ? `${reason} — ${hint}` : `Resend rejected the email: ${reason}`,
+          sent: false,
+        },
         { status: 502 },
       );
     }
