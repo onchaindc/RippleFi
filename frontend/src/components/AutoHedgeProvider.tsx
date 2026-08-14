@@ -53,6 +53,7 @@ import {
 } from "@/lib/hyperliquidLink";
 
 type ArmRuleInput = {
+  alertEmail: string;
   autoClosePercent: number;
   hedgeAmountFxrp: string;
   hedgeSizePercent: number;
@@ -1235,9 +1236,19 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
       ) {
         throw new Error("Auto-close recovery must be between 0% and 100%.");
       }
+      const alertEmail = input.alertEmail?.trim() ?? "";
+      if (
+        alertEmail &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(alertEmail)
+      ) {
+        throw new Error(
+          "Enter a valid email address for alerts (or leave it empty).",
+        );
+      }
 
       const now = Date.now();
       const nextRule: AutoHedgeRule = {
+        alertEmail,
         autoClosePercent: input.autoClosePercent,
         chainId: activeChainId,
         createdAt: now,

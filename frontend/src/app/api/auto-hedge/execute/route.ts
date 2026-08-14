@@ -1,5 +1,6 @@
 import { isAddress } from "viem";
 import { NextResponse } from "next/server";
+import { sendAlertEmail } from "@/lib/alertEmail";
 import type {
   AutoHedgeRule,
   HedgeExecutionEvent,
@@ -227,6 +228,23 @@ export async function POST(request: Request) {
       order = await adapter.createOrder(body.intent, context);
       execution = await adapter.execute(order, body.intent, context);
       intent = { ...body.intent, status: execution.status };
+      if (execution.status === "success") {
+        const email = sharedRule?.alertEmail?.trim();
+        if (email) {
+          // Alerts are best-effort: never block the execution response.
+          void sendAlertEmail({
+            subject: "RippleFI: your XRP hedge opened",
+            text: [
+              `Your Auto-Hedge protection opened a ${body.intent.execution.market} short on Hyperliquid.`,
+              `Size: ${execution.size ?? "—"} ${body.intent.execution.market}`,
+              `Network: ${body.intent.chain.name}`,
+              "",
+              "Open RippleFI to see the live position and close it any time.",
+            ].join("\n"),
+            to: email,
+          });
+        }
+      }
     } catch (error) {
       console.error("Auto-Hedge execution request failed", {
         adapter: adapter.id,

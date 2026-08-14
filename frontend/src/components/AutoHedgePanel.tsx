@@ -13,9 +13,10 @@ import {
   Unplug,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatUnits } from "viem";
 import type { VaultState } from "@/hooks/useVault";
+import { FtsoPriceChart } from "@/components/FtsoPriceChart";
 import { useAutoHedge } from "@/components/AutoHedgeProvider";
 import {
   getConfiguredExecutionTarget,
@@ -117,9 +118,12 @@ export function AutoHedgePanel({
     { threshold: "10", sizePercent: 50 },
     { threshold: "20", sizePercent: 50 },
   ]);
+  const [alertEmail, setAlertEmail] = useState("");
   const [autoCloseEnabled, setAutoCloseEnabled] = useState(false);
   const [autoClosePercent, setAutoClosePercent] = useState(2);
   const [rearm, setRearm] = useState(false);
+  const [liqWarning, setLiqWarning] = useState<string | null>(null);
+  const liqNotifiedRef = useRef<string | null>(null);
   const [message, setMessage] = useState("");
   const rule = autoHedge.rule;
   const status = rule?.status ?? "off";
@@ -162,6 +166,44 @@ export function AutoHedgePanel({
     error: positionError,
     position,
   } = useHyperliquidPosition(autoHedge.hyperliquidLink, hedgeMarket);
+
+  // Surface a warning (and one email per position, if alerts are set) when
+  // the open hedge is close to its liquidation price.
+  useEffect(() => {
+    if (!position || position.liquidationPx === null) {
+      setLiqWarning(null);
+      return;
+    }
+    const distance =
+      Math.abs(position.liquidationPx - position.markPx) / position.markPx;
+    if (distance > 0.03) {
+      setLiqWarning(null);
+      return;
+    }
+    const pct = distance * 100;
+    setLiqWarning(
+      `Liquidation is ~${pct.toFixed(1)}% away at $${displayPrice(
+        String(position.liquidationPx),
+      )}. Consider closing the hedge.`,
+    );
+    const key = `${position.coin}:${position.liquidationPx}`;
+    if (liqNotifiedRef.current !== key && alertEmail.trim()) {
+      liqNotifiedRef.current = key;
+      void fetch("/api/auto-hedge/alert", {
+        body: JSON.stringify({
+          chainId: autoHedge.chainId,
+          detail: `${position.coin} hedge is ${pct.toFixed(1)}% from liquidation (mark $${displayPrice(String(position.markPx))}, liq $${displayPrice(String(position.liquidationPx))}).`,
+          kind: "liquidation-warning",
+          to: alertEmail.trim(),
+          wallet: vault.address,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }).catch((error) =>
+        console.error("[RippleFI] Alert request failed", error),
+      );
+    }
+  }, [alertEmail, autoHedge.chainId, position, vault.address]);
   const triggeredIntent = rule?.lastIntent;
   const activeTriggerMode = rule?.triggerMode ?? triggerMode;
   const nextTrancheIndex = normalizedRule?.nextTrancheIndex ?? 0;
@@ -257,6 +299,7 @@ export function AutoHedgePanel({
       if (saved.tranches.length > 0) {
         setTranches(saved.tranches);
       }
+      setAlertEmail(saved.alertEmail);
       setAutoCloseEnabled(saved.autoClosePercent > 0);
       setAutoClosePercent(
         saved.autoClosePercent > 0 ? saved.autoClosePercent : 2,
@@ -279,6 +322,7 @@ export function AutoHedgePanel({
         setMessage("Protection rule disabled.");
       } else {
         await autoHedge.arm({
+          alertEmail,
           autoClosePercent: autoCloseEnabled ? autoClosePercent : 0,
           hedgeAmountFxrp,
           hedgeSizePercent,
@@ -906,10 +950,40 @@ export function AutoHedgePanel({
                 />
               </button>
             </div>
+            <label className="block">
+              <span className="text-xs font-medium text-[#89939e]">
+                Email alerts
+              </span>
+              <span className="mt-0.5 block text-[10px] leading-4 text-[#5f6972]">
+                Optional — get an email when the hedge opens or closes, or
+                if liquidation gets close.
+              </span>
+              <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3">
+                <input
+                  value={alertEmail}
+                  onChange={(event) => setAlertEmail(event.target.value)}
+                  disabled={controlsLocked}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  aria-label="Alert email address"
+                  className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:text-[#5f6972] disabled:opacity-60"
+                />
+              </div>
+            </label>
           </div>
         </div>
 
         <div className="border-t border-white/[0.06] bg-white/[0.015] px-4 py-5 sm:px-5 lg:border-l lg:border-t-0">
+          <div className="mb-4">
+            <FtsoPriceChart
+              price={autoHedge.price.data}
+              thresholdUsd={
+                activeTriggerMode === "single" ? triggerPrice : null
+              }
+            />
+          </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <HedgeMetric
               label={
@@ -1083,6 +1157,7 @@ export function AutoHedgePanel({
       {hyperliquidReady ? (
         <LiveHedgeCard
           isClosing={autoHedge.isClosing}
+          liqWarning={liqWarning}
           market={hedgeMarket}
           onClose={() => {
             setMessage("");
@@ -1152,12 +1227,14 @@ function HedgeMetric({ label, value }: { label: string; value: string }) {
 
 function LiveHedgeCard({
   isClosing,
+  liqWarning,
   market,
   onClose,
   position,
   positionError,
 }: {
   isClosing: boolean;
+  liqWarning: string | null;
   market: string;
   onClose: () => void;
   position: HyperliquidPosition | null;
@@ -1204,6 +1281,16 @@ function LiveHedgeCard({
           </button>
         ) : null}
       </div>
+      {liqWarning ? (
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-[#df6b6b]/30 bg-[#df6b6b]/[0.07] px-3 py-2 text-[11px] leading-4 text-[#f0a3a3]">
+          <AlertTriangle
+            aria-hidden="true"
+            className="mt-0.5 shrink-0"
+            size={13}
+          />
+          <span>{liqWarning}</span>
+        </div>
+      ) : null}
       {position ? (
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
           <HedgeMetric

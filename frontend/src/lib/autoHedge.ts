@@ -45,6 +45,9 @@ export type HedgeExecutionEvent = {
 };
 
 export type AutoHedgeRule = {
+  // Optional email that receives alert notifications (hedge opened/closed,
+  // liquidation warning). Empty string = alerts off.
+  alertEmail?: string;
   // Auto-close: buy the hedge back when XRP recovers to within
   // `autoClosePercent`% of the reference price (0 = off).
   autoClosePercent?: number;
@@ -168,6 +171,7 @@ export function getConfiguredExecutionTarget(chainId: SupportedChainId) {
 // read leverage/marginMode/triggerMode/etc. without null checks. Old stored
 // rules (v1) lack these fields; the defaults keep them fully functional.
 export type NormalizedAutoHedgeRule = AutoHedgeRule & {
+  alertEmail: string;
   autoClosePercent: number;
   hedgeOpen: boolean;
   leverage: number;
@@ -185,6 +189,7 @@ export function normalizeAutoHedgeRule(
 ): NormalizedAutoHedgeRule {
   return {
     ...rule,
+    alertEmail: rule.alertEmail?.trim() ?? "",
     autoClosePercent: rule.autoClosePercent ?? 0,
     hedgeOpen: rule.hedgeOpen ?? false,
     leverage: rule.leverage ?? 1,

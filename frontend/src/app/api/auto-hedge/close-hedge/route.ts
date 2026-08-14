@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendAlertEmail } from "@/lib/alertEmail";
 import type {
   AutoHedgeRule,
   HedgeExecutionEvent,
@@ -119,6 +120,23 @@ export async function POST(request: Request) {
         rule.updatedAt,
       );
       return NextResponse.json({ error: message }, { status: 502 });
+    }
+
+    if (result.status === "success") {
+      const email = rule.alertEmail?.trim();
+      if (email) {
+        // Alerts are best-effort: never block the close response.
+        void sendAlertEmail({
+          subject: "RippleFI: hedge closed",
+          text: [
+            `Your Auto-Hedge short on ${result.market} was closed on Hyperliquid.`,
+            result.message,
+            "",
+            "Open RippleFI to review the result or arm protection again.",
+          ].join("\n"),
+          to: email,
+        });
+      }
     }
 
     const now = Date.now();
