@@ -3,6 +3,7 @@
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  BookOpen,
   CircleDollarSign,
   Home,
   Network,
@@ -36,9 +37,19 @@ const navItems: NavItem[] = [
   { href: "/spend", label: "Spend / Pay", icon: CircleDollarSign },
   { href: "/auto-hedge", label: "Auto-Hedge", icon: ShieldCheck },
   { href: "/smart-accounts", label: "Smart Accounts", icon: Network },
+  { href: "/docs", label: "Docs", icon: BookOpen },
 ];
 
-const mobileNavItems = navItems;
+// The mobile bottom bar fits six items on one row; Docs lives in the footer
+// there so the bar never wraps or covers content.
+const mobileNavItems: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/deposit", label: "Earn", icon: ArrowDownToLine },
+  { href: "/withdraw", label: "Redeem", icon: ArrowUpFromLine },
+  { href: "/spend", label: "Spend / Pay", icon: CircleDollarSign },
+  { href: "/auto-hedge", label: "Auto-Hedge", icon: ShieldCheck },
+  { href: "/smart-accounts", label: "Smart Accounts", icon: Network },
+];
 
 function Navigation({ tablet = false }: { tablet?: boolean }) {
   const pathname = usePathname();
@@ -178,7 +189,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <footer className="mx-auto flex w-full max-w-7xl flex-col gap-2 border-t border-white/[0.06] px-4 py-2.5 text-[11px] text-[#707b85] sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <span>Earn, withdraw, and pay with FXRP</span>
-        <span>{chain.name}</span>
+        <span className="flex items-center gap-3">
+          <Link
+            href="/docs"
+            className="transition hover:text-[#cbd2d7]"
+          >
+            Docs
+          </Link>
+          <span>{chain.name}</span>
+        </span>
       </footer>
     </div>
   );
