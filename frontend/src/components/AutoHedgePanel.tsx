@@ -9,7 +9,6 @@ import {
   Link2,
   Lock,
   RadioTower,
-  Send,
   Shield,
   Unplug,
   Zap,
@@ -1039,7 +1038,7 @@ export function AutoHedgePanel({
                 />
               </button>
             </div>
-            <label className="block">
+            <div className="block">
               <span className="text-sm font-medium text-[#89939e]">
                 Email alerts
               </span>
@@ -1047,50 +1046,14 @@ export function AutoHedgePanel({
                 Optional — get an email when the hedge opens or closes, or
                 if liquidation gets close.
               </span>
-              <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3">
-                <input
-                  value={alertEmail}
-                  onChange={(event) => {
-                    setAlertEmail(event.target.value);
-                    setTestEmailNote("");
-                  }}
-                  disabled={controlsLocked}
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  aria-label="Alert email address"
-                  className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:text-[#5f6972] disabled:opacity-60"
+              <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#8f9aa3]">
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 rounded-full bg-[#82e8c2]/70"
                 />
-              </div>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  onClick={() => void sendTestEmail()}
-                  disabled={testingEmail || controlsLocked}
-                  className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full border border-[#71b9e6]/30 px-4 text-xs font-semibold text-[#9bd3f5] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 sm:w-auto"
-                >
-                  {testingEmail ? (
-                    <LoaderCircle
-                      aria-hidden="true"
-                      size={12}
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <Send aria-hidden="true" size={12} />
-                  )}
-                  {testingEmail ? "Sending…" : "Send test email"}
-                </button>
-                <span className="text-xs leading-4 text-[#5f6972]">
-                  Verifies the alert pipeline instantly.
-                </span>
-              </div>
-              {testEmailNote ? (
-                <p className="mt-1.5 text-xs leading-4 text-[#8f9aa3]">
-                  {testEmailNote}
-                </p>
-              ) : null}
-            </label>
+                Coming soon
+              </span>
+            </div>
           </div>
         </div>
 
