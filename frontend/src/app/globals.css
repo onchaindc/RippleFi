@@ -245,7 +245,7 @@ input {
 button:focus-visible,
 input:focus-visible,
 a:focus-visible {
-  outline: 2px solid #4de2ad;
+  outline: 1px solid rgba(255, 255, 255, 0.14);
   outline-offset: 2px;
 }
 
