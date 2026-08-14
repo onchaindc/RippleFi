@@ -62,6 +62,15 @@ async function fetchPosition(
       continue;
     }
     const positionValue = Number(pos.positionValue);
+    // Hyperliquid's clearinghouse payload exposes the current USD value as
+    // `positionValue`, not `notional` — fall back so the card never shows $--.
+    const rawNotional = Number(pos.notional);
+    const notional =
+      Number.isFinite(rawNotional) && rawNotional > 0
+        ? rawNotional
+        : Number.isFinite(positionValue) && positionValue > 0
+          ? positionValue
+          : Number(pos.entryPx) * size;
     return {
       coin: pos.coin as string,
       entryPx: Number(pos.entryPx),
@@ -81,7 +90,7 @@ async function fetchPosition(
           : Number.isFinite(positionValue) && positionValue > 0
             ? positionValue / size
             : Number(pos.entryPx),
-      notional: Number(pos.notional),
+      notional,
       size,
       unrealizedPnl: Number(pos.unrealizedPnl),
     };

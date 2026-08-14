@@ -511,84 +511,98 @@ export function AutoHedgePanel({
             <span className="text-[10px] font-semibold uppercase text-[#68737d]">
               Trigger
             </span>
-            <div className="mt-2 grid grid-cols-2 rounded-md border border-white/10 bg-[#080b0f]/70 p-1">
-              <button
-                type="button"
-                onClick={() => setTriggerType("percent-drop")}
-                disabled={controlsLocked}
-                className={`h-9 rounded px-2 text-xs font-medium transition ${
-                  triggerType === "percent-drop"
-                    ? "bg-[#172331] text-[#9bd3f5]"
-                    : "text-[#7d8790]"
-                }`}
-              >
-                Percent drop
-              </button>
-              <button
-                type="button"
-                onClick={() => setTriggerType("absolute")}
-                disabled={controlsLocked}
-                className={`h-9 rounded px-2 text-xs font-medium transition ${
-                  triggerType === "absolute"
-                    ? "bg-[#172331] text-[#9bd3f5]"
-                    : "text-[#7d8790]"
-                }`}
-              >
-                Price threshold
-              </button>
-            </div>
+            {triggerMode === "single" ? (
+              <div className="mt-2 grid grid-cols-2 rounded-md border border-white/10 bg-[#080b0f]/70 p-1">
+                <button
+                  type="button"
+                  onClick={() => setTriggerType("percent-drop")}
+                  disabled={controlsLocked}
+                  className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    triggerType === "percent-drop"
+                      ? "bg-[#172331] text-[#9bd3f5]"
+                      : "text-[#7d8790]"
+                  }`}
+                >
+                  Percent drop
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTriggerType("absolute")}
+                  disabled={controlsLocked}
+                  className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    triggerType === "absolute"
+                      ? "bg-[#172331] text-[#9bd3f5]"
+                      : "text-[#7d8790]"
+                  }`}
+                >
+                  Price threshold
+                </button>
+              </div>
+            ) : (
+              <p className="mt-2 text-[11px] leading-4 text-[#68737d]">
+                {triggerMode === "trailing"
+                  ? "Triggered by the trailing distance below."
+                  : "Triggered by the ladder tranches below."}
+              </p>
+            )}
           </div>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-xs font-medium text-[#89939e]">
-                {triggerType === "percent-drop"
-                  ? "Protect after drop"
-                  : "Protect below price"}
-              </span>
-              <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3 focus-within:border-[#71b9e6]/50">
-                {triggerType === "absolute" ? (
-                  <span className="mr-2 text-sm text-[#68737d]">$</span>
-                ) : null}
-                <input
-                  value={threshold}
-                  onChange={(event) => setThreshold(event.target.value)}
-                  disabled={controlsLocked}
-                  inputMode="decimal"
-                  aria-label="Auto-Hedge threshold"
-                  className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none disabled:opacity-60"
-                />
-                {triggerType === "percent-drop" ? (
-                  <span className="ml-2 text-sm text-[#68737d]">%</span>
-                ) : null}
-              </div>
-            </label>
-
-            <div>
-              <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-medium text-[#89939e]">Hedge size</span>
-                <span className="font-mono text-[#cbd2d7]">
-                  {hedgeSizePercent}%
+            {triggerMode === "single" ? (
+              <label className="block">
+                <span className="text-xs font-medium text-[#89939e]">
+                  {triggerType === "percent-drop"
+                    ? "Protect after drop"
+                    : "Protect below price"}
                 </span>
+                <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3 focus-within:border-[#71b9e6]/50">
+                  {triggerType === "absolute" ? (
+                    <span className="mr-2 text-sm text-[#68737d]">$</span>
+                  ) : null}
+                  <input
+                    value={threshold}
+                    onChange={(event) => setThreshold(event.target.value)}
+                    disabled={controlsLocked}
+                    inputMode="decimal"
+                    aria-label="Auto-Hedge threshold"
+                    className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none disabled:opacity-60"
+                  />
+                  {triggerType === "percent-drop" ? (
+                    <span className="ml-2 text-sm text-[#68737d]">%</span>
+                  ) : null}
+                </div>
+              </label>
+            ) : null}
+
+            {triggerMode !== "ladder" ? (
+              <div>
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="font-medium text-[#89939e]">
+                    Hedge size
+                  </span>
+                  <span className="font-mono text-[#cbd2d7]">
+                    {hedgeSizePercent}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={hedgeSizePercent}
+                  onChange={(event) =>
+                    setHedgeSizePercent(Number(event.target.value))
+                  }
+                  disabled={controlsLocked}
+                  aria-label="Hedge size percent"
+                  className="mt-3 h-2 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <div className="mt-2 flex justify-between text-[10px] text-[#5f6972]">
+                  <span>10%</span>
+                  <span>100%</span>
+                </div>
               </div>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                step="5"
-                value={hedgeSizePercent}
-                onChange={(event) =>
-                  setHedgeSizePercent(Number(event.target.value))
-                }
-                disabled={controlsLocked}
-                aria-label="Hedge size percent"
-                className="mt-3 h-2 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              <div className="mt-2 flex justify-between text-[10px] text-[#5f6972]">
-                <span>10%</span>
-                <span>100%</span>
-              </div>
-            </div>
+            ) : null}
           </div>
 
           <div className="mt-5 border-t border-white/[0.06] pt-4">
@@ -600,7 +614,14 @@ export function AutoHedgePanel({
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => setTriggerMode(mode)}
+                  onClick={() => {
+                    setTriggerMode(mode);
+                    // Trailing and ladder triggers are percentage-based; a
+                    // leftover "absolute" selection is ignored by them.
+                    if (mode !== "single") {
+                      setTriggerType("percent-drop");
+                    }
+                  }}
                   disabled={controlsLocked}
                   className={`h-9 rounded px-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                     triggerMode === mode
@@ -1122,7 +1143,7 @@ function HedgeMetric({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] font-semibold uppercase text-[#68737d]">
         {label}
       </p>
-      <p className="mt-1 truncate font-mono text-xs font-semibold text-[#d7dcdf]">
+      <p className="mt-1 truncate font-mono text-xs font-semibold tabular-nums text-[#d7dcdf]">
         {value}
       </p>
     </div>

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  ArrowUpRight,
-  CircleDollarSign,
-  Network,
-  WalletCards,
-} from "lucide-react";
+import { ArrowUpRight, WalletCards } from "lucide-react";
 import Link from "next/link";
 import { AutoHedgeSummary } from "@/components/AutoHedgeSummary";
 import { BalanceCard } from "@/components/BalanceCard";
@@ -123,8 +116,8 @@ export default function Home() {
             href="/deposit"
             className="glass-panel group rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:border-[#4de2ad]/35 hover:bg-[#101815]/80"
           >
-            <span className="flex size-9 items-center justify-center rounded-full border border-[#4de2ad]/18 bg-[#4de2ad]/[0.06] text-[#4de2ad]">
-              <ArrowDownToLine aria-hidden="true" size={18} />
+            <span className="flex size-9 items-center justify-center rounded-full border border-[#4de2ad]/18 bg-[#4de2ad]/[0.06] text-base leading-none">
+              📈
             </span>
             <span className="mt-4 block text-sm font-semibold">
               Earn
@@ -138,8 +131,8 @@ export default function Home() {
             href="/withdraw"
             className="glass-panel group rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:border-[#71b9e6]/35 hover:bg-[#101720]/80"
           >
-            <span className="flex size-9 items-center justify-center rounded-full border border-[#71b9e6]/18 bg-[#71b9e6]/[0.06] text-[#71b9e6]">
-              <ArrowUpFromLine aria-hidden="true" size={18} />
+            <span className="flex size-9 items-center justify-center rounded-full border border-[#71b9e6]/18 bg-[#71b9e6]/[0.06] text-base leading-none">
+              💱
             </span>
             <span className="mt-4 block text-sm font-semibold">
               Redeem
@@ -153,8 +146,8 @@ export default function Home() {
             href="/spend"
             className="glass-panel group rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:border-[#f2b84b]/35 hover:bg-[#17130b]/80"
           >
-            <span className="flex size-9 items-center justify-center rounded-full border border-[#f2b84b]/18 bg-[#f2b84b]/[0.06] text-[#f2b84b]">
-              <CircleDollarSign aria-hidden="true" size={18} />
+            <span className="flex size-9 items-center justify-center rounded-full border border-[#f2b84b]/18 bg-[#f2b84b]/[0.06] text-base leading-none">
+              💳
             </span>
             <span className="mt-4 block text-sm font-semibold">
               Spend / Pay
@@ -168,8 +161,8 @@ export default function Home() {
             href="/smart-accounts"
             className="glass-panel group rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.045]"
           >
-            <span className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[#c3cbd1]">
-              <Network aria-hidden="true" size={18} />
+            <span className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-base leading-none">
+              ⚡
             </span>
             <span className="mt-4 block text-sm font-semibold">
               Use XRPL
