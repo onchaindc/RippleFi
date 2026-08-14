@@ -37,7 +37,6 @@ const navItems: NavItem[] = [
   { href: "/spend", label: "Spend / Pay", icon: CircleDollarSign },
   { href: "/auto-hedge", label: "Auto-Hedge", icon: ShieldCheck },
   { href: "/smart-accounts", label: "Smart Accounts", icon: Network },
-  { href: "/docs", label: "Docs", icon: BookOpen },
 ];
 
 // The mobile bottom bar fits six items on one row; Docs lives in the footer
@@ -54,33 +53,38 @@ const mobileNavItems: NavItem[] = [
 function Navigation({ tablet = false }: { tablet?: boolean }) {
   const pathname = usePathname();
 
+  // The scroll container is the safety net: when links + right-side controls
+  // can't fit the viewport, the nav scrolls internally (scrollbars hidden)
+  // instead of ever colliding with the network/wallet pills.
   return (
     <nav
       aria-label="Primary navigation"
       className={
         tablet
-          ? "hidden min-w-0 items-center justify-center gap-1 pb-2 md:flex lg:hidden"
-          : "hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex"
+          ? "hidden min-w-0 items-center overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex lg:hidden"
+          : "hidden min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex"
       }
     >
-      {navItems.map(({ href, icon: Icon, label }) => {
-        const active = pathname === href;
-        return (
-          <Link
-            key={href}
-            href={href}
-            aria-current={active ? "page" : undefined}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition ${
-              active
-                ? "bg-[#17231f] text-[#82e8c2]"
-                : "text-[#89939e] hover:bg-white/[0.04] hover:text-white"
-            }`}
-          >
-            <Icon aria-hidden="true" size={15} />
-            {label}
-          </Link>
-        );
-      })}
+      <div className="mx-auto flex w-max items-center gap-1">
+        {navItems.map(({ href, icon: Icon, label }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium transition ${
+                active
+                  ? "bg-[#17231f] text-[#82e8c2]"
+                  : "text-[#89939e] hover:bg-white/[0.04] hover:text-white"
+              }`}
+            >
+              <Icon aria-hidden="true" size={15} />
+              {label}
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }
@@ -170,7 +174,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             <Navigation />
 
-            <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+              <Link
+                href="/docs"
+                className="hidden h-10 shrink-0 items-center gap-2 rounded-lg border border-[#4de2ad]/25 bg-[#4de2ad]/[0.07] px-3 text-xs font-medium text-[#82e8c2] transition hover:bg-[#4de2ad]/[0.12] md:inline-flex"
+              >
+                <BookOpen aria-hidden="true" size={14} />
+                Docs
+              </Link>
               <div className="hidden md:block">
                 <NetworkSwitcher />
               </div>

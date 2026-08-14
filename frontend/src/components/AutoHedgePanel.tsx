@@ -18,6 +18,7 @@ import { formatUnits } from "viem";
 import type { VaultState } from "@/hooks/useVault";
 import { FtsoPriceChart } from "@/components/FtsoPriceChart";
 import { useAutoHedge } from "@/components/AutoHedgeProvider";
+import { useToast } from "@/components/ToastProvider";
 import {
   getConfiguredExecutionTarget,
   getTrancheTriggerPriceUsd,
@@ -104,6 +105,7 @@ export function AutoHedgePanel({
   vault: VaultState;
 }) {
   const autoHedge = useAutoHedge();
+  const { toast } = useToast();
   const [triggerType, setTriggerType] =
     useState<AutoHedgeTriggerType>("percent-drop");
   const [threshold, setThreshold] = useState("10");
@@ -168,31 +170,37 @@ export function AutoHedgePanel({
   } = useHyperliquidPosition(autoHedge.hyperliquidLink, hedgeMarket);
 
   // Surface a warning (and one email per position, if alerts are set) when
-  // the open hedge is close to its liquidation price.
+  // the open hedge is close to its liquidation price. Updates are deferred so
+  // they never run synchronously inside the effect.
   useEffect(() => {
-    if (!position || position.liquidationPx === null) {
-      setLiqWarning(null);
+    if (!position) {
+      queueMicrotask(() => setLiqWarning(null));
       return;
     }
+    const { liquidationPx, markPx } = position;
     const distance =
-      Math.abs(position.liquidationPx - position.markPx) / position.markPx;
-    if (distance > 0.03) {
-      setLiqWarning(null);
+      liquidationPx === null || markPx <= 0
+        ? null
+        : Math.abs(liquidationPx - markPx) / markPx;
+    if (distance === null || distance > 0.03) {
+      queueMicrotask(() => setLiqWarning(null));
       return;
     }
     const pct = distance * 100;
-    setLiqWarning(
-      `Liquidation is ~${pct.toFixed(1)}% away at $${displayPrice(
-        String(position.liquidationPx),
-      )}. Consider closing the hedge.`,
+    queueMicrotask(() =>
+      setLiqWarning(
+        `Liquidation is ~${pct.toFixed(1)}% away at $${displayPrice(
+          String(liquidationPx),
+        )}. Consider closing the hedge.`,
+      ),
     );
-    const key = `${position.coin}:${position.liquidationPx}`;
+    const key = `${position.coin}:${liquidationPx}`;
     if (liqNotifiedRef.current !== key && alertEmail.trim()) {
       liqNotifiedRef.current = key;
       void fetch("/api/auto-hedge/alert", {
         body: JSON.stringify({
           chainId: autoHedge.chainId,
-          detail: `${position.coin} hedge is ${pct.toFixed(1)}% from liquidation (mark $${displayPrice(String(position.markPx))}, liq $${displayPrice(String(position.liquidationPx))}).`,
+          detail: `${position.coin} hedge is ${pct.toFixed(1)}% from liquidation (mark $${displayPrice(String(markPx))}, liq $${displayPrice(String(liquidationPx))}).`,
           kind: "liquidation-warning",
           to: alertEmail.trim(),
           wallet: vault.address,
@@ -311,15 +319,17 @@ export function AutoHedgePanel({
   async function toggleAutoHedge() {
     setMessage("");
     if (!rule?.enabled && approvalBlocksArming) {
-      setMessage(
-        "Enable Hyperliquid protection first — protection can't arm until you approve it.",
-      );
+      const notice =
+        "Enable Hyperliquid protection first — protection can't arm until you approve it.";
+      setMessage(notice);
+      toast(notice, "warning");
       return;
     }
     try {
       if (rule?.enabled) {
         await autoHedge.disarm();
         setMessage("Protection rule disabled.");
+        toast("Protection disabled.", "info");
       } else {
         await autoHedge.arm({
           alertEmail,
@@ -340,9 +350,12 @@ export function AutoHedgePanel({
           triggerType,
         });
         setMessage("Protection rule armed.");
+        toast("Protection armed.", "success");
       }
     } catch (error) {
-      setMessage(readError(error));
+      const detail = readError(error);
+      setMessage(detail);
+      toast(detail, "error");
     }
   }
 
@@ -351,8 +364,11 @@ export function AutoHedgePanel({
     try {
       await autoHedge.enableHyperliquid();
       setMessage("Hyperliquid protection is ready.");
+      toast("Hyperliquid protection is ready.", "success");
     } catch (error) {
-      setMessage(readError(error));
+      const detail = readError(error);
+      setMessage(detail);
+      toast(detail, "error");
     }
   }
 
@@ -361,8 +377,11 @@ export function AutoHedgePanel({
     try {
       await autoHedge.disconnectHyperliquid();
       setMessage("Hyperliquid protection turned off.");
+      toast("Hyperliquid protection turned off.", "info");
     } catch (error) {
-      setMessage(readError(error));
+      const detail = readError(error);
+      setMessage(detail);
+      toast(detail, "error");
     }
   }
 
@@ -1163,8 +1182,15 @@ export function AutoHedgePanel({
             setMessage("");
             autoHedge
               .closeHedge()
-              .then(() => setMessage("Hedge closed."))
-              .catch((error) => setMessage(readError(error)));
+              .then(() => {
+                setMessage("Hedge closed.");
+                toast("Hedge closed.", "success");
+              })
+              .catch((error) => {
+                const detail = readError(error);
+                setMessage(detail);
+                toast(detail, "error");
+              });
           }}
           position={position}
           positionError={positionError}
