@@ -119,13 +119,13 @@ export function YieldStrategyPanel({
               className="mt-0.5 shrink-0 text-[#71b9e6]"
               size={14}
             />
-            <p className="text-[11px] leading-5 text-[#8b969f]">
+            <p className="text-xs leading-5 text-[#8b969f]">
               Firelight issues stXRP. Exits follow scheduled withdrawal periods,
               so this position cannot fund RippleFI payments directly.
             </p>
           </div>
         ) : (
-          <p className="text-[11px] leading-5 text-[#8b969f]">
+          <p className="text-xs leading-5 text-[#8b969f]">
             Upshift deposits receive rFXRP and stay connected to RippleFI
             withdrawals and payments.
           </p>
@@ -246,7 +246,7 @@ function StrategyOption({
                 {badge}
               </span>
             </div>
-            <span className="mt-0.5 block text-[11px] text-[#77828b]">
+            <span className="mt-0.5 block text-xs text-[#77828b]">
               {description}
             </span>
           </div>

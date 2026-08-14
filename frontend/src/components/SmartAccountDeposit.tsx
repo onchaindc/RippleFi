@@ -35,7 +35,7 @@ function shorten(value: string, start = 8, end = 6) {
 function FlowSummary({ number, text }: { number: string; text: string }) {
   return (
     <div className="flex items-center gap-3 text-xs">
-      <span className="font-mono text-[10px] text-[#8d7954]">{number}</span>
+      <span className="font-mono text-[11px] text-[#8d7954]">{number}</span>
       <span className="text-[#88939c]">{text}</span>
     </div>
   );
@@ -127,7 +127,7 @@ export function SmartAccountDeposit({ vault }: { vault: VaultState }) {
     >
       <div className="grid w-full min-w-0 gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:gap-8">
         <div>
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#f2b84b]">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#f2b84b]">
             <Network aria-hidden="true" size={15} />
             XRPL deposit
           </div>

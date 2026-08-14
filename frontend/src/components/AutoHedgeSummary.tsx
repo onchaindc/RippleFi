@@ -133,19 +133,19 @@ export function AutoHedgeSummary() {
                 Auto-Hedge
               </h2>
               <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusStyles[status]}`}
+                className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusStyles[status]}`}
               >
                 {statusLabels[status]}
               </span>
               {executionLabel && execution ? (
                 <span
-                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${executionStyles[execution.status]}`}
+                  className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${executionStyles[execution.status]}`}
                 >
                   {executionLabel}
                 </span>
               ) : null}
               {hedgeOpen ? (
-                <span className="rounded-full border border-[#f2b84b]/30 bg-[#f2b84b]/[0.08] px-2 py-0.5 text-[10px] font-semibold text-[#f4cd7d]">
+                <span className="rounded-full border border-[#f2b84b]/30 bg-[#f2b84b]/[0.08] px-2 py-0.5 text-[11px] font-semibold text-[#f4cd7d]">
                   Hedge open
                 </span>
               ) : null}
@@ -156,7 +156,7 @@ export function AutoHedgeSummary() {
 
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="flex items-center justify-end gap-1.5 text-[10px] font-medium uppercase text-[#68737d]">
+            <p className="flex items-center justify-end gap-1.5 text-[11px] font-medium uppercase text-[#68737d]">
               <RadioTower
                 aria-hidden="true"
                 className="text-[#4de2ad]"
@@ -306,7 +306,7 @@ function SummaryMetric({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-semibold uppercase text-[#68737d]">
+      <p className="text-[11px] font-semibold uppercase text-[#68737d]">
         {label}
       </p>
       <p

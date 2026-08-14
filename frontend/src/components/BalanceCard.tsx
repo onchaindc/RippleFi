@@ -24,7 +24,7 @@ export function BalanceCard({
           <span className="text-xs font-medium text-[#7d8790]">{suffix}</span>
         </div>
       </div>
-      <p className="mt-3 text-[11px] text-[#68737d]">{description}</p>
+      <p className="mt-3 text-xs text-[#68737d]">{description}</p>
     </article>
   );
 }

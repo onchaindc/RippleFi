@@ -64,7 +64,7 @@ export function SmartAccountSpend({ vault }: { vault: VaultState }) {
   return (
     <section className="glass-panel-strong overflow-hidden rounded-xl border border-[#71b9e6]/15">
       <div className="border-b border-white/[0.06] px-4 py-4 sm:px-5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#71b9e6]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-[#71b9e6]">
           Xaman authorized
         </p>
         <h2 className="mt-1 text-xl font-semibold text-white">
@@ -94,7 +94,7 @@ export function SmartAccountSpend({ vault }: { vault: VaultState }) {
               type="button"
               onClick={resolve}
               disabled={smartAccount.isLoading || flow.isActive}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[#71b9e6]/25 px-2.5 text-[10px] font-semibold text-[#a7d9f5] disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[#71b9e6]/25 px-2.5 text-[11px] font-semibold text-[#a7d9f5] disabled:opacity-50"
             >
               {smartAccount.isLoading ? (
                 <LoaderCircle className="animate-spin" size={14} />
@@ -171,7 +171,7 @@ export function SmartAccountSpend({ vault }: { vault: VaultState }) {
                 placeholder="0.00"
                 className="min-w-0 flex-1 bg-transparent text-base outline-none"
               />
-              <span className="text-[10px] text-[#68737d]">FXRP</span>
+              <span className="text-[11px] text-[#68737d]">FXRP</span>
             </div>
           </label>
         </div>
@@ -194,7 +194,7 @@ export function SmartAccountSpend({ vault }: { vault: VaultState }) {
                 {smartAccount.formatBalance(instruction.paymentAmountRaw)} XRP
               </span>
             </div>
-            <p className="mt-2 text-[10px] leading-4 text-[#746b58]">
+            <p className="mt-2 text-[11px] leading-4 text-[#746b58]">
               Includes a one-base-unit FXRP direct mint plus current protocol
               fees. The requested {instruction.amountRaw > 0n ? amount : "0"} FXRP
               comes from the selected Smart Account balance.

@@ -137,7 +137,7 @@ export function SpendPay({ vault }: { vault: VaultState }) {
         </span>
         <div>
           <h2 className="text-sm font-semibold text-white">Make a payment</h2>
-          <p className="mt-0.5 text-[10px] text-[#68737d]">
+          <p className="mt-0.5 text-[11px] text-[#68737d]">
             Choose the balance, recipient, and amount.
           </p>
         </div>

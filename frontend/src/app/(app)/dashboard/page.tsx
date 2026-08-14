@@ -19,11 +19,11 @@ export default function Home() {
     Boolean(firelight.assetsRaw && firelight.assetsRaw > 0n);
 
   return (
-    <main className="mx-auto min-w-0 w-full max-w-6xl flex-1 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto min-w-0 w-full max-w-7xl flex-1 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">
       <section className="border-b border-white/[0.07] pb-6">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div className="max-w-2xl">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#4de2ad]">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#4de2ad]">
               <WalletCards aria-hidden="true" size={16} />
               Portfolio
             </div>
@@ -32,14 +32,14 @@ export default function Home() {
                 ? "Your XRP position is earning."
                 : "Put your XRP position to work."}
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-[#8f9aa3]">
+            <p className="mt-3 max-w-xl text-[15px] leading-6 text-[#8f9aa3]">
               See what you hold, where it earns, and what is ready to use.
             </p>
           </div>
 
           {vault.contracts.vault ? (
             <a
-              className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-[#aeb7be] transition hover:border-white/20 hover:text-white"
+              className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-medium text-[#aeb7be] transition hover:border-white/20 hover:text-white"
               href={`${vault.chain.blockExplorers.default.url}/address/${vault.contracts.vault}`}
               target="_blank"
               rel="noreferrer"
@@ -48,7 +48,7 @@ export default function Home() {
               <ArrowUpRight aria-hidden="true" size={15} />
             </a>
           ) : (
-            <span className="inline-flex h-10 w-fit items-center rounded-lg border border-[#f2b84b]/20 bg-[#f2b84b]/[0.04] px-3 text-xs text-[#c8aa6c]">
+            <span className="inline-flex h-10 w-fit items-center rounded-lg border border-[#f2b84b]/20 bg-[#f2b84b]/[0.04] px-3 text-sm text-[#c8aa6c]">
               Vault unavailable on this network
             </span>
           )}
@@ -105,7 +105,7 @@ export default function Home() {
             <h2 id="quick-actions-heading" className="text-lg font-semibold">
               What do you want to do?
             </h2>
-            <p className="mt-1 text-xs text-[#747f89]">
+            <p className="mt-1 text-sm text-[#747f89]">
               Move, use, or add to your FXRP position.
             </p>
           </div>
@@ -119,10 +119,10 @@ export default function Home() {
             <span className="flex size-9 items-center justify-center rounded-full border border-[#4de2ad]/18 bg-[#4de2ad]/[0.06] text-base leading-none">
               📈
             </span>
-            <span className="mt-4 block text-sm font-semibold">
+            <span className="mt-4 block text-[15px] font-semibold">
               Earn
             </span>
-            <span className="mt-1 block text-xs leading-5 text-[#747f89]">
+            <span className="mt-1 block text-sm leading-5 text-[#747f89]">
               Deposit into Upshift or Firelight.
             </span>
           </Link>
@@ -134,10 +134,10 @@ export default function Home() {
             <span className="flex size-9 items-center justify-center rounded-full border border-[#71b9e6]/18 bg-[#71b9e6]/[0.06] text-base leading-none">
               💱
             </span>
-            <span className="mt-4 block text-sm font-semibold">
+            <span className="mt-4 block text-[15px] font-semibold">
               Redeem
             </span>
-            <span className="mt-1 block text-xs leading-5 text-[#747f89]">
+            <span className="mt-1 block text-sm leading-5 text-[#747f89]">
               Return spend-ready vault assets.
             </span>
           </Link>
@@ -149,10 +149,10 @@ export default function Home() {
             <span className="flex size-9 items-center justify-center rounded-full border border-[#f2b84b]/18 bg-[#f2b84b]/[0.06] text-base leading-none">
               💳
             </span>
-            <span className="mt-4 block text-sm font-semibold">
+            <span className="mt-4 block text-[15px] font-semibold">
               Spend / Pay
             </span>
-            <span className="mt-1 block text-xs leading-5 text-[#747f89]">
+            <span className="mt-1 block text-sm leading-5 text-[#747f89]">
               Pay from available or vault FXRP.
             </span>
           </Link>
@@ -164,10 +164,10 @@ export default function Home() {
             <span className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-base leading-none">
               ⚡
             </span>
-            <span className="mt-4 block text-sm font-semibold">
+            <span className="mt-4 block text-[15px] font-semibold">
               Use XRPL
             </span>
-            <span className="mt-1 block text-xs leading-5 text-[#747f89]">
+            <span className="mt-1 block text-sm leading-5 text-[#747f89]">
               Deposit and pay through Xaman.
             </span>
           </Link>

@@ -81,7 +81,7 @@ export function PaymentRequestCreator({ vault }: { vault: VaultState }) {
               placeholder="0.00"
               className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-[#3f4851]"
             />
-            <span className="text-[11px] text-[#68737d]">FXRP</span>
+            <span className="text-xs text-[#68737d]">FXRP</span>
           </div>
         </label>
         <label className="min-w-0 text-xs text-[#89939e]">

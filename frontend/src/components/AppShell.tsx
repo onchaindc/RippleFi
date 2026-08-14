@@ -178,13 +178,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Navigation />
 
             <div className="flex shrink-0 items-center gap-2">
-              <Link
-                href="/docs"
-                className="hidden h-10 shrink-0 items-center gap-2 rounded-lg border border-[#4de2ad]/25 bg-[#4de2ad]/[0.07] px-3 text-xs font-medium text-[#82e8c2] transition hover:bg-[#4de2ad]/[0.12] md:inline-flex"
-              >
-                <BookOpen aria-hidden="true" size={14} />
-                Docs
-              </Link>
               <div className="hidden md:block">
                 <NetworkSwitcher />
               </div>
@@ -192,6 +185,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <NetworkSwitcher mobile />
               </div>
               <WalletConnect />
+              <Link
+                href="/docs"
+                aria-label="Docs"
+                title="Docs"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-[#aeb7be] transition hover:border-[#4de2ad]/30 hover:bg-[#4de2ad]/[0.08] hover:text-[#82e8c2]"
+              >
+                <BookOpen aria-hidden="true" size={16} />
+              </Link>
             </div>
           </div>
           <Navigation tablet />

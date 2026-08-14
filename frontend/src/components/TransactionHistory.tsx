@@ -71,7 +71,7 @@ export function TransactionHistory({ vault }: { vault: VaultState }) {
             >
               Transaction history
             </h2>
-            <p className="mt-0.5 text-[11px] text-[#6f7a83]">
+            <p className="mt-0.5 text-xs text-[#6f7a83]">
               Deposits, withdrawals, and payments since this vault launched
             </p>
           </div>
@@ -228,7 +228,7 @@ function SummaryMetric({
       <p className="truncate text-[8px] font-semibold uppercase tracking-[0.1em] text-[#616c75]">
         {label}
       </p>
-      <p className={`mt-1 truncate font-mono text-[11px] font-semibold ${valueColor}`}>
+      <p className={`mt-1 truncate font-mono text-xs font-semibold ${valueColor}`}>
         {value} {value !== "N/A" && value !== "Loading" ? "FXRP" : ""}
       </p>
     </div>

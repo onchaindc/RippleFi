@@ -10,7 +10,7 @@ export default function AutoHedgePage() {
   const firelight = useFirelight();
 
   return (
-    <main className="mx-auto min-w-0 w-full max-w-6xl flex-1 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto min-w-0 w-full max-w-7xl flex-1 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">
       <section className="border-b border-white/[0.07] pb-6">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div className="max-w-2xl">

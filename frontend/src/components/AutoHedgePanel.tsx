@@ -469,19 +469,19 @@ export function AutoHedgePanel({
                 Auto-Hedge
               </h2>
               <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusStyles[status]}`}
+                className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusStyles[status]}`}
               >
                 {statusLabels[status]}
               </span>
               {executionLabel && execution ? (
                 <span
-                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${executionStyles[execution.status]}`}
+                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${executionStyles[execution.status]}`}
                 >
                   {executionLabel}
                 </span>
               ) : null}
             </div>
-            <p className="mt-0.5 text-xs text-[#7d8790]">
+            <p className="mt-0.5 text-sm text-[#7d8790]">
               XRP downside protection
             </p>
           </div>
@@ -489,7 +489,7 @@ export function AutoHedgePanel({
 
         <div className="flex items-center justify-between gap-4 sm:justify-end">
           <div className="text-right">
-            <p className="flex items-center justify-end gap-1.5 text-[10px] font-medium uppercase text-[#68737d]">
+            <p className="flex items-center justify-end gap-1.5 text-xs font-medium uppercase text-[#68737d]">
               <RadioTower
                 aria-hidden="true"
                 className="text-[#4de2ad]"
@@ -549,7 +549,7 @@ export function AutoHedgePanel({
                 Hyperliquid protection
               </p>
               <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
                   hyperliquidReady
                     ? executionStyles.success
                     : hyperliquidNeedsApproval
@@ -560,7 +560,7 @@ export function AutoHedgePanel({
                 {hyperliquidStatus}
               </span>
             </div>
-            <p className="mt-1 text-[11px] leading-4 text-[#68737d]">
+            <p className="mt-1 text-xs leading-4 text-[#68737d]">
               Allow protective shorts on your Hyperliquid account.
             </p>
           </div>
@@ -603,7 +603,7 @@ export function AutoHedgePanel({
         </div>
 
         {autoHedge.hyperliquidLink ? (
-          <p className="mt-3 text-[11px] leading-4 text-[#68737d]">
+          <p className="mt-3 text-xs leading-4 text-[#68737d]">
             {hyperliquidReady
               ? "Protective shorts run on your own Hyperliquid account. You can turn this off at any time."
               : "Approve the request in your wallet to finish enabling protection."}
@@ -614,7 +614,7 @@ export function AutoHedgePanel({
       <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
         <div className="px-4 py-5 sm:px-5 sm:py-6">
           {controlsLocked ? (
-            <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border border-[#f2b84b]/25 bg-[#f2b84b]/[0.06] px-3 py-2.5 text-[11px] leading-4 text-[#c8aa6c]">
+            <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border border-[#f2b84b]/25 bg-[#f2b84b]/[0.06] px-3 py-2.5 text-xs leading-4 text-[#c8aa6c]">
               <Lock
                 aria-hidden="true"
                 className="mt-0.5 shrink-0"
@@ -639,7 +639,7 @@ export function AutoHedgePanel({
             </div>
           ) : null}
           <div>
-            <span className="text-[11px] font-semibold uppercase text-[#68737d] sm:text-[10px]">
+            <span className="text-sm font-semibold uppercase text-[#68737d] sm:text-sm">
               Trigger
             </span>
             {triggerMode === "single" ? (
@@ -670,7 +670,7 @@ export function AutoHedgePanel({
                 </button>
               </div>
             ) : (
-              <p className="mt-2 text-[11px] leading-4 text-[#68737d]">
+              <p className="mt-2 text-xs leading-4 text-[#68737d]">
                 {triggerMode === "trailing"
                   ? "Triggered by the trailing distance below."
                   : "Triggered by the ladder tranches below."}
@@ -681,7 +681,7 @@ export function AutoHedgePanel({
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {triggerMode === "single" ? (
               <label className="block">
-                <span className="text-xs font-medium text-[#89939e]">
+                <span className="text-sm font-medium text-[#89939e]">
                   {triggerType === "percent-drop"
                     ? "Protect after drop"
                     : "Protect below price"}
@@ -728,7 +728,7 @@ export function AutoHedgePanel({
                   aria-label="Hedge size percent"
                   className="mt-3 h-3 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50 sm:h-2"
                 />
-                <div className="mt-2 flex justify-between text-[11px] text-[#5f6972] sm:text-[10px]">
+                <div className="mt-2 flex justify-between text-xs text-[#5f6972] sm:text-xs">
                   <span>10%</span>
                   <span>100%</span>
                 </div>
@@ -737,7 +737,7 @@ export function AutoHedgePanel({
           </div>
 
           <div className="mt-5 border-t border-white/[0.06] pt-4">
-            <span className="text-[11px] font-semibold uppercase text-[#68737d] sm:text-[10px]">
+            <span className="text-sm font-semibold uppercase text-[#68737d] sm:text-sm">
               Trigger mode
             </span>
             <div className="mt-2 grid grid-cols-3 rounded-md border border-white/10 bg-[#080b0f]/70 p-1">
@@ -768,7 +768,7 @@ export function AutoHedgePanel({
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] leading-4 text-[#5f6972] sm:text-[10px]">
+            <p className="mt-2 text-xs leading-4 text-[#5f6972] sm:text-xs">
               {triggerMode === "single"
                 ? "One shot when the price crosses the threshold above."
                 : triggerMode === "trailing"
@@ -779,7 +779,7 @@ export function AutoHedgePanel({
             {triggerMode === "trailing" ? (
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-xs font-medium text-[#89939e]">
+                  <span className="text-sm font-medium text-[#89939e]">
                     Trailing distance
                   </span>
                   <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3">
@@ -796,7 +796,7 @@ export function AutoHedgePanel({
                     <span className="ml-2 text-sm text-[#68737d]">%</span>
                   </div>
                 </label>
-                <p className="self-end pb-2 text-[11px] leading-4 text-[#68737d]">
+                <p className="self-end pb-2 text-xs leading-4 text-[#68737d]">
                   Triggers when XRP falls {trailingStopPercent}% from its
                   recent high.
                 </p>
@@ -806,7 +806,7 @@ export function AutoHedgePanel({
             {triggerMode === "ladder" ? (
               <div className="mt-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-[#89939e]">
+                  <span className="text-sm font-medium text-[#89939e]">
                     Ladder tranches
                   </span>
                   <button
@@ -818,7 +818,7 @@ export function AutoHedgePanel({
                       ])
                     }
                     disabled={controlsLocked || tranches.length >= 4}
-                    className="rounded-full border border-[#71b9e6]/30 px-2.5 py-1 text-[11px] font-semibold text-[#71b9e6] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
+                    className="rounded-full border border-[#71b9e6]/30 px-2.5 py-1 text-xs font-semibold text-[#71b9e6] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-40 sm:text-xs"
                   >
                     + Add tranche
                   </button>
@@ -845,7 +845,7 @@ export function AutoHedgePanel({
                         aria-label={`Tranche ${index + 1} drop percent`}
                         className="w-full min-w-0 bg-transparent font-mono text-xs outline-none disabled:opacity-60"
                       />
-                      <span className="ml-1 text-[10px] text-[#68737d]">
+                      <span className="ml-1 text-xs text-[#68737d]">
                         % drop
                       </span>
                     </div>
@@ -872,7 +872,7 @@ export function AutoHedgePanel({
                         aria-label={`Tranche ${index + 1} size percent`}
                         className="h-3 w-full cursor-pointer accent-[#71b9e6] disabled:opacity-50 sm:h-2"
                       />
-                      <span className="ml-2 w-9 text-right font-mono text-[10px] text-[#cbd2d7]">
+                      <span className="ml-2 w-9 text-right font-mono text-xs text-[#cbd2d7]">
                         {tranche.sizePercent}%
                       </span>
                     </div>
@@ -897,7 +897,7 @@ export function AutoHedgePanel({
 
           <div className="mt-5 border-t border-white/[0.06] pt-4">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-[#89939e]">
+              <span className="text-sm font-medium text-[#89939e]">
                 Leverage
               </span>
               <span className="font-mono text-[#cbd2d7]">{leverage}x</span>
@@ -913,7 +913,7 @@ export function AutoHedgePanel({
               aria-label="Leverage"
               className="mt-3 h-3 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50 sm:h-2"
             />
-            <div className="mt-2 flex justify-between text-[11px] text-[#5f6972] sm:text-[10px]">
+            <div className="mt-2 flex justify-between text-xs text-[#5f6972] sm:text-xs">
               <span>1x</span>
               <span>50x</span>
             </div>
@@ -943,7 +943,7 @@ export function AutoHedgePanel({
                 Isolated
               </button>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-[11px] leading-4 text-[#68737d] sm:text-[10px]">
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs leading-4 text-[#68737d] sm:text-xs">
               <span>
                 Margin ≈{" "}
                 <span className="font-mono text-[#cbd2d7]">
@@ -961,10 +961,10 @@ export function AutoHedgePanel({
           <div className="mt-5 space-y-4 border-t border-white/[0.06] pt-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-medium text-[#89939e]">
+                <p className="text-sm font-medium text-[#89939e]">
                   Auto-close after recovery
                 </p>
-                <p className="mt-0.5 text-[10px] leading-4 text-[#5f6972]">
+                <p className="mt-0.5 text-xs leading-4 text-[#5f6972]">
                   Buy the hedge back automatically when XRP recovers.
                 </p>
               </div>
@@ -991,7 +991,7 @@ export function AutoHedgePanel({
             </div>
             {autoCloseEnabled ? (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-[#68737d]">
+                <span className="text-xs text-[#68737d]">
                   Recover within
                 </span>
                 <input
@@ -1004,15 +1004,15 @@ export function AutoHedgePanel({
                   aria-label="Auto-close recovery percent"
                   className="h-9 w-16 rounded-md border border-white/10 bg-[#080b0f]/70 px-2 text-center font-mono text-sm outline-none disabled:opacity-60"
                 />
-                <span className="text-[10px] text-[#68737d]">
+                <span className="text-xs text-[#68737d]">
                   % of the pre-drop price
                 </span>
               </div>
             ) : null}
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-medium text-[#89939e]">Re-arm</p>
-                <p className="mt-0.5 text-[10px] leading-4 text-[#5f6972]">
+                <p className="text-sm font-medium text-[#89939e]">Re-arm</p>
+                <p className="mt-0.5 text-xs leading-4 text-[#5f6972]">
                   Watch the next drop automatically after the hedge closes.
                 </p>
               </div>
@@ -1038,10 +1038,10 @@ export function AutoHedgePanel({
               </button>
             </div>
             <label className="block">
-              <span className="text-xs font-medium text-[#89939e]">
+              <span className="text-sm font-medium text-[#89939e]">
                 Email alerts
               </span>
-              <span className="mt-0.5 block text-[10px] leading-4 text-[#5f6972]">
+              <span className="mt-0.5 block text-xs leading-4 text-[#5f6972]">
                 Optional — get an email when the hedge opens or closes, or
                 if liquidation gets close.
               </span>
@@ -1066,7 +1066,7 @@ export function AutoHedgePanel({
                   type="button"
                   onClick={() => void sendTestEmail()}
                   disabled={testingEmail || controlsLocked}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-[#71b9e6]/30 px-3 text-[11px] font-semibold text-[#9bd3f5] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-[#71b9e6]/30 px-3 text-xs font-semibold text-[#9bd3f5] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {testingEmail ? (
                     <LoaderCircle
@@ -1079,12 +1079,12 @@ export function AutoHedgePanel({
                   )}
                   {testingEmail ? "Sending…" : "Send test email"}
                 </button>
-                <span className="text-[10px] leading-4 text-[#5f6972]">
+                <span className="text-xs leading-4 text-[#5f6972]">
                   Verifies the alert pipeline instantly.
                 </span>
               </div>
               {testEmailNote ? (
-                <p className="mt-1.5 text-[10px] leading-4 text-[#8f9aa3]">
+                <p className="mt-1.5 text-xs leading-4 text-[#8f9aa3]">
                   {testEmailNote}
                 </p>
               ) : null}
@@ -1251,7 +1251,7 @@ export function AutoHedgePanel({
                   />
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/[0.05] pt-3 text-[10px] text-[#68737d]">
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/[0.05] pt-3 text-xs text-[#68737d]">
                   <span className="flex items-center gap-1.5">
                     <Clock3 aria-hidden="true" size={12} />
                     Triggered {displayTime(rule.triggeredAt)}
@@ -1330,7 +1330,7 @@ function ExecutionStep({
       />
       <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
         <span className={`text-xs font-medium ${labelStyle}`}>{label}</span>
-        <span className="break-words text-[10px] text-[#68737d]">{detail}</span>
+        <span className="break-words text-xs text-[#68737d]">{detail}</span>
       </div>
     </div>
   );
@@ -1339,7 +1339,7 @@ function ExecutionStep({
 function HedgeMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-semibold uppercase text-[#68737d] sm:text-[10px]">
+      <p className="text-sm font-semibold uppercase text-[#68737d] sm:text-sm">
         {label}
       </p>
       <p className="mt-1 truncate font-mono text-sm font-semibold tabular-nums text-[#d7dcdf] sm:text-xs">
@@ -1375,7 +1375,7 @@ function LiveHedgeCard({
           </p>
           {position ? (
             <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+              className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
                 pnl !== null && pnl < 0
                   ? executionStyles.failed
                   : executionStyles.success
@@ -1406,7 +1406,7 @@ function LiveHedgeCard({
         ) : null}
       </div>
       {liqWarning ? (
-        <div className="mt-3 flex items-start gap-2 rounded-md border border-[#df6b6b]/30 bg-[#df6b6b]/[0.07] px-3 py-2 text-[11px] leading-4 text-[#f0a3a3]">
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-[#df6b6b]/30 bg-[#df6b6b]/[0.07] px-3 py-2 text-xs leading-4 text-[#f0a3a3]">
           <AlertTriangle
             aria-hidden="true"
             className="mt-0.5 shrink-0"
@@ -1457,9 +1457,9 @@ function LiveHedgeCard({
           />
         </div>
       ) : positionError ? (
-        <p className="mt-3 text-[11px] text-[#df6b6b]">{positionError}</p>
+        <p className="mt-3 text-xs text-[#df6b6b]">{positionError}</p>
       ) : (
-        <p className="mt-3 text-[11px] leading-4 text-[#68737d]">
+        <p className="mt-3 text-xs leading-4 text-[#68737d]">
           No open {market} hedge right now.
         </p>
       )}

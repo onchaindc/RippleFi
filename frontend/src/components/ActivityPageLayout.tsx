@@ -84,18 +84,18 @@ export function ActivityPageLayout({
   const copy = activityCopy[activityScope];
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
       <header className="grid gap-5 border-b border-white/[0.07] pb-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.7fr)] lg:items-end">
         <div className="min-w-0">
           <p
-            className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${colors.eyebrow}`}
+            className={`text-xs font-semibold uppercase tracking-[0.16em] ${colors.eyebrow}`}
           >
             {eyebrow}
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
             {title}
           </h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-[#8f9aa3]">
+          <p className="mt-3 max-w-xl text-[15px] leading-6 text-[#8f9aa3]">
             {description}
           </p>
         </div>
@@ -110,7 +110,7 @@ export function ActivityPageLayout({
               key={metric.label}
               className={`min-w-0 rounded-xl border px-4 py-3.5 ${colors.metric}`}
             >
-              <p className="truncate text-[10px] font-semibold uppercase tracking-[0.11em] text-[#747f89]">
+              <p className="truncate text-[11px] font-semibold uppercase tracking-[0.11em] text-[#747f89]">
                 {metric.label}
               </p>
               <p
@@ -119,7 +119,7 @@ export function ActivityPageLayout({
               >
                 {metric.value}
                 {metric.suffix ? (
-                  <span className="ml-1.5 text-[10px] font-semibold tracking-normal text-[#747f89]">
+                  <span className="ml-1.5 text-[11px] font-semibold tracking-normal text-[#747f89]">
                     {metric.suffix}
                   </span>
                 ) : null}
@@ -224,7 +224,7 @@ export function ActivityPageLayout({
                   <p className="text-sm font-medium text-white">
                     Activity unavailable
                   </p>
-                  <p className="mt-2 max-w-xs text-xs leading-5 text-[#747f89]">
+                  <p className="mt-2 max-w-xs text-sm leading-5 text-[#747f89]">
                     {vault.chain.name} history could not be loaded. Your balances and
                     actions are unaffected.
                   </p>
@@ -234,14 +234,14 @@ export function ActivityPageLayout({
                   <p className="text-sm font-medium text-white">
                     Connect to view activity
                   </p>
-                  <p className="mt-2 max-w-xs text-xs leading-5 text-[#747f89]">
+                  <p className="mt-2 max-w-xs text-sm leading-5 text-[#747f89]">
                     Wallet-scoped {activityScope} history will appear here.
                   </p>
                 </div>
               ) : activity.items.length === 0 ? (
                 <div className="flex min-h-48 flex-col justify-center px-4 py-5">
                   <p className="text-sm font-medium text-white">{copy.empty}</p>
-                  <p className="mt-2 max-w-xs text-xs leading-5 text-[#747f89]">
+                  <p className="mt-2 max-w-xs text-sm leading-5 text-[#747f89]">
                     {copy.description}
                   </p>
                 </div>

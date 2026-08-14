@@ -90,6 +90,9 @@ export async function POST(request: Request) {
       if (/401|unauthorized|invalid api key/i.test(lower)) {
         hint =
           "Your RESEND_API_KEY was rejected — copy the full key from your Resend dashboard (API Keys) into the Vercel env and redeploy.";
+      } else if (/restricted/i.test(lower)) {
+        hint =
+          "That key was created with restricted (Sending access) permissions. Create a new key with Full access in your Resend dashboard, or verify a domain and set ALERT_EMAIL_FROM to it — restricted keys can't use the sandbox sender.";
       } else if (/403|testing emails|own account email/i.test(lower)) {
         hint =
           "Resend's sandbox sender (onboarding@resend.dev) only delivers to your Resend account's own email. Verify a domain in Resend, then set ALERT_EMAIL_FROM to it and redeploy to send to any address.";
