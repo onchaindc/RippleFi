@@ -1,7 +1,7 @@
 import "server-only";
 
 import { isAddress } from "viem";
-import type { HedgeExecutionEvent, HedgeIntent } from "@/lib/autoHedge";
+import type { AutoHedgeMarginMode, HedgeExecutionEvent, HedgeIntent } from "@/lib/autoHedge";
 import { coston2, flare } from "@/lib/networks";
 import type {
   HedgeExecutionAdapter,
@@ -57,12 +57,16 @@ function getTestnetMarkets() {
   return markets;
 }
 
-function getTestnetMarket(intentMarket: string) {
+export function getTestnetMarket(intentMarket: string) {
   return (
     process.env.HYPERLIQUID_TESTNET_MARKET?.trim().toUpperCase() ||
     intentMarket.toUpperCase() ||
     "BTC"
   );
+}
+
+export function hyperliquidIsCross(marginMode: AutoHedgeMarginMode | undefined) {
+  return marginMode === undefined ? undefined : marginMode === "cross";
 }
 
 function supportsHyperliquidTarget(intent: HedgeIntent) {
@@ -161,6 +165,12 @@ async function executeWithSigner(
       apiWalletAddress: config.apiWalletAddress,
       direction: order.direction,
       idempotencyKey: order.idempotencyKey,
+      ...(order.leverage === undefined
+        ? {}
+        : {
+            isCross: order.isCross ?? true,
+            leverage: order.leverage,
+          }),
       market: order.market,
       network: config.network,
       ripplefiWallet: config.ripplefiWallet,
@@ -335,6 +345,12 @@ abstract class HyperliquidAdapter implements HedgeExecutionAdapter {
     return {
       direction: intent.direction,
       idempotencyKey: context.idempotencyKey,
+      ...(intent.leverage === undefined
+        ? {}
+        : {
+            isCross: hyperliquidIsCross(intent.marginMode),
+            leverage: intent.leverage,
+          }),
       market,
       network: expectedNetwork,
       orderType: intent.execution.orderType,
@@ -386,4 +402,90 @@ export class HyperliquidMultiMarketAdapter extends HyperliquidAdapter {
   protected supportsTarget(intent: HedgeIntent) {
     return supportsHyperliquidTarget(intent);
   }
+}
+
+export type CloseHyperliquidResult = {
+  averagePrice: string | null;
+  externalOrderId: string | null;
+  filledSize: string | null;
+  market: string;
+  message: string;
+  network: HyperliquidNetwork;
+  status: "pending" | "success";
+};
+
+// Buy back (reduce-only market close) the open protective short via the signer.
+// Idempotent: the signer keys the close on the idempotencyKey.
+export async function closeHyperliquidPosition({
+  idempotencyKey,
+  link,
+  market,
+  slippageBps = 100,
+}: {
+  idempotencyKey: string;
+  link: HyperliquidLink;
+  market: string;
+  slippageBps?: number;
+}): Promise<CloseHyperliquidResult> {
+  const config = getHyperliquidConfig(link.network, link);
+  const endpoint = `${config.signerUrl}/v1/orders/close`;
+  const response = await fetch(endpoint, {
+    body: JSON.stringify({
+      accountAddress: config.accountAddress,
+      apiWalletAddress: config.apiWalletAddress,
+      idempotencyKey,
+      market,
+      network: config.network,
+      ripplefiWallet: config.ripplefiWallet,
+      slippageBps,
+      venue: "hyperliquid",
+      venueMarket: market,
+    }),
+    headers: {
+      Authorization: `Bearer ${config.signerAuthToken}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(50_000),
+  });
+  const rawBody = await response.text();
+  const body = (() => {
+    try {
+      return JSON.parse(rawBody) as
+        | CloseHyperliquidResult
+        | SignerErrorBody;
+    } catch {
+      return null;
+    }
+  })();
+  if (!response.ok) {
+    console.error("Hyperliquid signer rejected close request", {
+      body,
+      market,
+      network: config.network,
+      status: response.status,
+    });
+    throw new Error(formatSignerError(body, rawBody, response.status));
+  }
+  if (
+    !body ||
+    typeof body !== "object" ||
+    !("status" in body) ||
+    (body.status !== "pending" && body.status !== "success") ||
+    !("idempotencyKey" in body) ||
+    body.idempotencyKey !== idempotencyKey ||
+    !("market" in body) ||
+    body.market !== market ||
+    !("network" in body) ||
+    body.network !== config.network
+  ) {
+    console.error("Hyperliquid signer returned invalid close receipt", {
+      body,
+      expectedIdempotencyKey: idempotencyKey,
+      expectedMarket: market,
+      expectedNetwork: config.network,
+    });
+    throw new Error("The Hyperliquid signer returned an invalid receipt.");
+  }
+  return body as CloseHyperliquidResult;
 }

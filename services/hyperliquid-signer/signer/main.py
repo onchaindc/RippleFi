@@ -94,11 +94,39 @@ class ShortOrderRequest(BaseModel):
         min_length=12,
         max_length=MAX_IDEMPOTENCY_KEY_LENGTH,
     )
+    # Optional per-rule perpetual leverage. When present the signer applies it
+    # on Hyperliquid right before opening the short; absent means "leave the
+    # account's current leverage untouched" (legacy clients).
+    is_cross: bool | None = Field(default=None, alias="isCross")
+    leverage: int | None = Field(default=None, ge=1, le=50)
     market: str = Field(min_length=2, max_length=32, pattern=r"^[A-Z0-9:_-]+$")
     network: HyperliquidNetwork
     order_type: Literal["market"] = Field(alias="orderType")
     semantics: OrderSemantics
     size: str
+    venue: Literal["hyperliquid"]
+    venue_market: str = Field(
+        alias="venueMarket",
+        min_length=2,
+        max_length=32,
+        pattern=r"^[A-Z0-9:_-]+$",
+    )
+
+
+class CloseOrderRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    account_address: str = Field(alias="accountAddress")
+    api_wallet_address: str = Field(alias="apiWalletAddress")
+    ripplefi_wallet: str = Field(alias="ripplefiWallet")
+    idempotency_key: str = Field(
+        alias="idempotencyKey",
+        min_length=12,
+        max_length=MAX_IDEMPOTENCY_KEY_LENGTH,
+    )
+    market: str = Field(min_length=2, max_length=32, pattern=r"^[A-Z0-9:_-]+$")
+    network: HyperliquidNetwork
+    slippage_bps: int = Field(default=100, alias="slippageBps", ge=1)
     venue: Literal["hyperliquid"]
     venue_market: str = Field(
         alias="venueMarket",
@@ -607,7 +635,7 @@ def provision_agent_credential(
     return credential, True
 
 
-def get_user_exchange(request: ShortOrderRequest) -> Any:
+def get_user_exchange(request: ShortOrderRequest | CloseOrderRequest) -> Any:
     wallet = request.ripplefi_wallet.lower()
     master = request.account_address.lower()
     requested_api_wallet = request.api_wallet_address.lower()
@@ -1155,6 +1183,7 @@ def normalize_exchange_response(
     idempotency_key: str,
     market: str,
     network: HyperliquidNetwork,
+    verb: str = "short",
 ) -> XrpShortResponse:
     if result.get("status") != "ok":
         raise RuntimeError(f"Hyperliquid rejected the order: {result}")
@@ -1179,7 +1208,11 @@ def normalize_exchange_response(
             filledSize=str(fill.get("totalSz")),
             idempotencyKey=idempotency_key,
             market=market,
-            message=f"{market} short filled at ${fill.get('avgPx')}.",
+            message=(
+                f"{market} closed at ${fill.get('avgPx')}."
+                if verb == "closed"
+                else f"{market} short filled at ${fill.get('avgPx')}."
+            ),
             network=network,
             status="success",
         )
@@ -1193,7 +1226,7 @@ def normalize_exchange_response(
             idempotencyKey=idempotency_key,
             market=market,
             message=(
-                f"{market} short accepted and awaiting final venue status."
+                f"{market} {verb} accepted and awaiting final venue status."
             ),
             network=network,
             status="pending",
@@ -1342,6 +1375,12 @@ def execute_short_order(request: ShortOrderRequest) -> XrpShortResponse:
 
         execution_store.reserve(request.idempotency_key, digest)
         try:
+            if request.leverage is not None:
+                exchange.update_leverage(
+                    request.leverage,
+                    request.venue_market,
+                    request.is_cross if request.is_cross is not None else True,
+                )
             result = exchange.market_open(
                 request.venue_market,
                 False,
@@ -1402,6 +1441,149 @@ def place_xrp_short(request: ShortOrderRequest) -> XrpShortResponse:
             detail="The legacy endpoint accepts only XRP.",
         )
     return execute_short_order(request)
+
+
+def validate_close_request(request: CloseOrderRequest) -> None:
+    settings = require_ready_settings()
+    if request.network != settings.network:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Request network {request.network} does not match signer "
+                f"network {settings.network}."
+            ),
+        )
+    if not ADDRESS_PATTERN.fullmatch(request.ripplefi_wallet):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The RippleFI wallet is invalid.",
+        )
+    if not ADDRESS_PATTERN.fullmatch(request.account_address):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The Hyperliquid master account is invalid.",
+        )
+    if not ADDRESS_PATTERN.fullmatch(request.api_wallet_address):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The Hyperliquid API wallet is invalid.",
+        )
+    if request.market != request.venue_market:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "HYPERLIQUID_MARKET_MAPPING_INVALID",
+                "message": "Logical and venue market symbols must match.",
+            },
+        )
+    if request.network == "mainnet" and request.market != "XRP":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "HYPERLIQUID_MAINNET_MARKET_LOCKED",
+                "message": "This signer permits only XRP on mainnet.",
+            },
+        )
+    if (
+        request.network == "testnet"
+        and request.market not in settings.testnet_markets
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "HYPERLIQUID_MARKET_UNAVAILABLE",
+                "market": request.market,
+                "message": (
+                    f"{request.market} is not enabled by the testnet signer."
+                ),
+            },
+        )
+    if request.slippage_bps > settings.max_slippage_bps:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Requested slippage exceeds the signer policy limit of "
+                f"{settings.max_slippage_bps} bps."
+            ),
+        )
+
+
+def execute_close_order(request: CloseOrderRequest) -> XrpShortResponse:
+    validate_close_request(request)
+    digest = request_digest(request)
+    try:
+        execution_store = get_store()
+        exchange = get_user_exchange(request)
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(
+            "hyperliquid.close runtime failure wallet=%s master=%s network=%s "
+            "error=%s",
+            request.ripplefi_wallet.lower(),
+            request.account_address.lower(),
+            request.network,
+            error,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Signer execution runtime is not ready: {error}",
+        ) from error
+
+    with execution_lock:
+        cached_response = execution_store.read(
+            request.idempotency_key,
+            digest,
+        )
+        if cached_response:
+            return cached_response
+
+        execution_store.reserve(request.idempotency_key, digest)
+        try:
+            result = exchange.market_close(
+                request.venue_market,
+                slippage=request.slippage_bps / 10_000,
+                cloid=deterministic_cloid(request.idempotency_key),
+            )
+            response = normalize_exchange_response(
+                result,
+                request.idempotency_key,
+                request.venue_market,
+                request.network,
+                verb="closed",
+            )
+            execution_store.complete(response)
+            return response
+        except Exception as error:
+            try:
+                execution_store.mark_unknown(request.idempotency_key)
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={
+                    "code": "HYPERLIQUID_CLOSE_FAILED",
+                    "logicalMarket": request.market,
+                    "message": (
+                        f"Hyperliquid rejected or failed closing the "
+                        f"{request.venue_market} position."
+                    ),
+                    "network": request.network,
+                    "venue": request.venue,
+                    "venueError": describe_hyperliquid_error(error),
+                    "venueMarket": request.venue_market,
+                },
+            ) from error
+
+
+@app.post(
+    "/v1/orders/close",
+    dependencies=[Depends(require_auth)],
+    response_model=XrpShortResponse,
+    response_model_by_alias=True,
+)
+def place_close(request: CloseOrderRequest) -> XrpShortResponse:
+    return execute_close_order(request)
 
 
 @app.post(

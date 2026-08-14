@@ -29,7 +29,13 @@ import {
   createPendingExecution,
   createHedgeIntent,
   evaluateHedgeTrigger,
+  evaluateLadderTrigger,
+  evaluateTrailingTrigger,
+  normalizeAutoHedgeRule,
+  type AutoHedgeMarginMode,
   type AutoHedgeRule,
+  type AutoHedgeTranche,
+  type AutoHedgeTriggerMode,
   type AutoHedgeTriggerType,
   type HedgeExecutionEvent,
   type HedgeIntent,
@@ -47,10 +53,17 @@ import {
 } from "@/lib/hyperliquidLink";
 
 type ArmRuleInput = {
+  autoClosePercent: number;
   hedgeAmountFxrp: string;
   hedgeSizePercent: number;
+  leverage: number;
+  marginMode: AutoHedgeMarginMode;
   positionFxrp: string;
+  rearm: boolean;
   threshold: string;
+  trailingStopPercent: number;
+  tranches: AutoHedgeTranche[];
+  triggerMode: AutoHedgeTriggerMode;
   triggerType: AutoHedgeTriggerType;
 };
 
@@ -277,13 +290,51 @@ async function signHyperliquidAction(
   };
 }
 
+// Apply post-execution rule state: mark the hedge open on success, keep a
+// ladder armed until every tranche has fired, and surface failures.
+function finalizeExecutionRule(
+  rule: AutoHedgeRule,
+  execution: HedgeExecutionEvent,
+  triggerMode: AutoHedgeTriggerMode,
+  trancheIndex: number | null,
+  trancheCount: number,
+): AutoHedgeRule {
+  const now = Date.now();
+  if (
+    execution.status === "success" &&
+    triggerMode === "ladder" &&
+    trancheIndex !== null
+  ) {
+    const nextIndex = trancheIndex + 1;
+    const allDone = nextIndex >= trancheCount;
+    return {
+      ...rule,
+      enabled: !allDone,
+      error: null,
+      hedgeOpen: true,
+      nextTrancheIndex: nextIndex,
+      status: allDone ? "triggered" : "armed",
+      updatedAt: now,
+    };
+  }
+  return {
+    ...rule,
+    error: execution.error,
+    hedgeOpen: execution.status === "success",
+    status: execution.status === "success" ? "triggered" : rule.status,
+    updatedAt: now,
+  };
+}
+
 type AutoHedgeContextValue = {
   arm: (input: ArmRuleInput) => Promise<void>;
   chainId: SupportedChainId;
+  closeHedge: () => Promise<void>;
   disarm: () => Promise<void>;
   disconnectHyperliquid: () => Promise<void>;
   enableHyperliquid: () => Promise<void>;
   hyperliquidLink: HyperliquidLink | null;
+  isClosing: boolean;
   isHyperliquidBusy: boolean;
   isExecuting: boolean;
   isHydrated: boolean;
@@ -508,6 +559,7 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
   }>({ key: null, rule: null });
   const [hydratedKey, setHydratedKey] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isHyperliquidBusy, setIsHyperliquidBusy] = useState(false);
   const [hyperliquidLink, setHyperliquidLink] =
     useState<HyperliquidLink | null>(null);
@@ -517,6 +569,7 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
     shared: false,
   });
   const executingRuleId = useRef<string | null>(null);
+  const closingRuleId = useRef<string | null>(null);
   const rule = stored.key === key ? stored.rule : null;
   const ruleRef = useRef<AutoHedgeRule | null>(null);
 
@@ -1113,24 +1166,95 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
       if (Number(input.positionFxrp) <= 0 || Number(input.hedgeAmountFxrp) <= 0) {
         throw new Error("An FXRP position is required to arm Auto-Hedge.");
       }
+      const leverage = Math.round(Number(input.leverage));
+      if (!Number.isFinite(leverage) || leverage < 1 || leverage > 50) {
+        throw new Error("Leverage must be between 1x and 50x.");
+      }
+      if (input.marginMode !== "cross" && input.marginMode !== "isolated") {
+        throw new Error("Choose a margin mode.");
+      }
+      if (
+        input.triggerMode !== "single" &&
+        input.triggerMode !== "trailing" &&
+        input.triggerMode !== "ladder"
+      ) {
+        throw new Error("Choose a trigger mode.");
+      }
+      if (
+        input.triggerMode === "trailing" &&
+        (!Number.isFinite(input.trailingStopPercent) ||
+          input.trailingStopPercent <= 0 ||
+          input.trailingStopPercent >= 100)
+      ) {
+        throw new Error("Trailing stop distance must be between 0% and 100%.");
+      }
+      if (input.triggerMode === "ladder") {
+        if (!input.tranches.length) {
+          throw new Error("Add at least one ladder tranche.");
+        }
+        const totalSize = input.tranches.reduce(
+          (sum, tranche) => sum + tranche.sizePercent,
+          0,
+        );
+        if (totalSize > 100) {
+          throw new Error(
+            "Ladder tranche sizes add up to more than 100% of the position.",
+          );
+        }
+        for (const tranche of input.tranches) {
+          const trancheThreshold = Number(tranche.threshold);
+          if (
+            !Number.isFinite(trancheThreshold) ||
+            trancheThreshold <= 0 ||
+            trancheThreshold >= 100
+          ) {
+            throw new Error("Each ladder threshold must be between 0% and 100%.");
+          }
+          if (
+            !Number.isFinite(tranche.sizePercent) ||
+            tranche.sizePercent <= 0 ||
+            tranche.sizePercent > 100
+          ) {
+            throw new Error("Each ladder tranche size must be between 1% and 100%.");
+          }
+        }
+      }
+      if (
+        !Number.isFinite(input.autoClosePercent) ||
+        input.autoClosePercent < 0 ||
+        input.autoClosePercent >= 100
+      ) {
+        throw new Error("Auto-close recovery must be between 0% and 100%.");
+      }
 
       const now = Date.now();
       const nextRule: AutoHedgeRule = {
+        autoClosePercent: input.autoClosePercent,
         chainId: activeChainId,
         createdAt: now,
         enabled: true,
         error: null,
         hedgeAmountFxrp: input.hedgeAmountFxrp,
+        hedgeOpen: false,
         hedgeSizePercent: input.hedgeSizePercent,
         id: crypto.randomUUID(),
         lastExecution: null,
         lastIntent: null,
         lastObservedPriceUsd: price.data.priceUsd,
+        leverage,
+        marginMode: input.marginMode,
+        nextTrancheIndex: 0,
         owner: address,
         positionFxrp: input.positionFxrp,
+        rearm: input.rearm,
         referencePriceUsd: price.data.priceUsd,
         status: "armed",
         threshold: input.threshold,
+        trailingHighUsd: price.data.priceUsd,
+        trailingStopPercent: input.trailingStopPercent,
+        tranches:
+          input.triggerMode === "ladder" ? input.tranches : [],
+        triggerMode: input.triggerMode,
         triggeredAt: null,
         triggerType: input.triggerType,
         updatedAt: now,
@@ -1236,27 +1360,84 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const evaluation = evaluateHedgeTrigger(rule, price.data.priceUsd);
-    if (!evaluation.crossed || evaluation.triggerPriceUsd === null) {
-      if (rule.lastObservedPriceUsd !== price.data.priceUsd) {
-        const observedRule: AutoHedgeRule = {
-          ...rule,
-          lastObservedPriceUsd: price.data.priceUsd,
-          updatedAt: Date.now(),
-        };
-        queueMicrotask(() => {
-          void persistRule(observedRule, rule.updatedAt, false);
-        });
+    const currentRule = normalizeAutoHedgeRule(rule);
+    const currentPrice = price.data.priceUsd;
+
+    let crossed = false;
+    let triggerPriceUsd: number | null = null;
+    let trancheIndex: number | null = null;
+    let hedgeSizePercent = currentRule.hedgeSizePercent;
+    let newHigh: number | null = null;
+
+    if (currentRule.triggerMode === "trailing") {
+      const trailing = evaluateTrailingTrigger(currentRule, currentPrice);
+      newHigh = trailing.newHigh;
+      crossed = trailing.crossed;
+      triggerPriceUsd = trailing.triggerPriceUsd;
+    } else if (currentRule.triggerMode === "ladder") {
+      const ladder = evaluateLadderTrigger(currentRule, currentPrice);
+      if (ladder.trancheIndex >= 0) {
+        crossed = true;
+        trancheIndex = ladder.trancheIndex;
+        triggerPriceUsd = ladder.triggerPriceUsd;
+        hedgeSizePercent =
+          currentRule.tranches[ladder.trancheIndex]?.sizePercent ??
+          currentRule.hedgeSizePercent;
       }
+    } else {
+      const evaluation = evaluateHedgeTrigger(currentRule, currentPrice);
+      crossed = evaluation.crossed;
+      triggerPriceUsd = evaluation.triggerPriceUsd;
+    }
+
+    const previousHigh = Number(
+      currentRule.trailingHighUsd ?? currentRule.referencePriceUsd,
+    );
+    const trailingHighChanged =
+      newHigh !== null && newHigh !== previousHigh;
+    if (
+      currentRule.lastObservedPriceUsd !== currentPrice ||
+      trailingHighChanged
+    ) {
+      const observedRule: AutoHedgeRule = {
+        ...currentRule,
+        lastObservedPriceUsd: currentPrice,
+        ...(newHigh !== null
+          ? { trailingHighUsd: String(newHigh) }
+          : {}),
+        updatedAt: Date.now(),
+      };
+      queueMicrotask(() => {
+        void persistRule(observedRule, rule.updatedAt, false);
+      });
+    }
+    if (!crossed || triggerPriceUsd === null) {
       return;
     }
 
     executingRuleId.current = rule.id;
+    const positionXrp = Number(currentRule.positionFxrp);
+    const hedgeAmountXrp =
+      Number.isFinite(positionXrp) && positionXrp > 0
+        ? positionXrp * (hedgeSizePercent / 100)
+        : 0;
     const intent = createHedgeIntent({
-      hedgeAmountFxrp: rule.hedgeAmountFxrp,
+      hedgeAmountFxrp:
+        hedgeAmountXrp > 0
+          ? String(hedgeAmountXrp)
+          : currentRule.hedgeAmountFxrp,
+      hedgeSizePercent,
+      leverage: currentRule.leverage,
+      marginMode: currentRule.marginMode,
       price: price.data,
-      rule,
-      triggerPriceUsd: evaluation.triggerPriceUsd,
+      rule: currentRule,
+      threshold:
+        trancheIndex !== null
+          ? currentRule.tranches[trancheIndex]?.threshold ??
+            currentRule.threshold
+          : currentRule.threshold,
+      trancheIndex,
+      triggerPriceUsd,
     });
     const pendingExecution = createPendingExecution(intent);
 
@@ -1317,18 +1498,24 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
           ? body.rule
           : null;
         if (serverRule) {
-          setStored({ key, rule: serverRule });
-          ruleRef.current = serverRule;
+          const nextRule = finalizeExecutionRule(
+            serverRule,
+            body.execution!,
+            currentRule.triggerMode,
+            trancheIndex,
+            currentRule.tranches.length,
+          );
+          await persistRule(nextRule, serverRule.updatedAt, false);
           return;
         }
         const current = ruleRef.current ?? pendingRule;
-        const finalRule: AutoHedgeRule = {
-          ...current,
-          error: body.execution!.error,
-          lastExecution: body.execution!,
-          lastIntent: body.intent!,
-          updatedAt: Date.now(),
-        };
+        const finalRule = finalizeExecutionRule(
+          current,
+          body.execution!,
+          currentRule.triggerMode,
+          trancheIndex,
+          currentRule.tranches.length,
+        );
         await persistRule(finalRule, current.updatedAt, false);
       } catch (error) {
         const failedAt = Date.now();
@@ -1374,14 +1561,143 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
     rule,
   ]);
 
+  const closeHedge = useCallback(async () => {
+    const current = ruleRef.current;
+    if (!address || !key) {
+      throw new Error("Connect a wallet to close the hedge.");
+    }
+    if (!hyperliquidLink) {
+      throw new Error(
+        "Enable Hyperliquid protection before closing a hedge.",
+      );
+    }
+    if (!current) {
+      throw new Error("No protection rule is active to close.");
+    }
+    closingRuleId.current = current.id;
+    setIsClosing(true);
+    try {
+      const token = await ensureSession(false);
+      if (!token) {
+        throw new Error(
+          "Auto-Hedge execution authorization is missing on this device.",
+        );
+      }
+      const idempotencyKey = `${current.id}:close:${Date.now()}`;
+      const response = await fetch("/api/auto-hedge/close-hedge", {
+        body: JSON.stringify({ idempotencyKey }),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const body = (await response.json()) as {
+        error?: string;
+        execution?: HedgeExecutionEvent;
+        rule?: unknown;
+      };
+      if (!response.ok || !body.execution) {
+        throw new Error(body.error || "The hedge could not be closed.");
+      }
+      const serverRule = isAutoHedgeRule(
+        body.rule,
+        address,
+        activeChainId,
+      )
+        ? body.rule
+        : null;
+      if (!serverRule) {
+        const localRule: AutoHedgeRule = {
+          ...current,
+          enabled: false,
+          error: null,
+          hedgeOpen: false,
+          lastExecution: body.execution,
+          status: "off",
+          updatedAt: Date.now(),
+        };
+        await persistRule(localRule, current.updatedAt, false);
+        return;
+      }
+      // Re-arm: after the hedge is closed, watch again from the current price
+      // so the next drop is protected automatically.
+      if (
+        normalizeAutoHedgeRule(serverRule).rearm &&
+        price.data &&
+        price.data.chainId === activeChainId
+      ) {
+        const now = Date.now();
+        const rearmed: AutoHedgeRule = {
+          ...serverRule,
+          enabled: true,
+          error: null,
+          lastObservedPriceUsd: price.data.priceUsd,
+          nextTrancheIndex: 0,
+          referencePriceUsd: price.data.priceUsd,
+          status: "armed",
+          trailingHighUsd: price.data.priceUsd,
+          triggeredAt: null,
+          updatedAt: now,
+        };
+        await persistRule(rearmed, serverRule.updatedAt, false);
+        return;
+      }
+      setStored({ key, rule: serverRule });
+      ruleRef.current = serverRule;
+    } finally {
+      closingRuleId.current = null;
+      setIsClosing(false);
+    }
+  }, [
+    activeChainId,
+    address,
+    ensureSession,
+    hyperliquidLink,
+    key,
+    persistRule,
+    price.data,
+  ]);
+
+  // Auto-close: buy the hedge back once XRP recovers to within
+  // `autoClosePercent`% of the reference price.
+  useEffect(() => {
+    if (
+      !rule ||
+      rule.status !== "triggered" ||
+      !rule.hedgeOpen ||
+      !price.data ||
+      price.data.chainId !== rule.chainId ||
+      closingRuleId.current === rule.id
+    ) {
+      return;
+    }
+    const currentRule = normalizeAutoHedgeRule(rule);
+    if (currentRule.autoClosePercent <= 0) {
+      return;
+    }
+    const reference = Number(currentRule.referencePriceUsd);
+    if (!Number.isFinite(reference) || reference <= 0) {
+      return;
+    }
+    const closePrice = reference * (1 - currentRule.autoClosePercent / 100);
+    if (Number(price.data.priceUsd) >= closePrice) {
+      void closeHedge().catch((error) => {
+        console.error("[RippleFI] Auto-close failed", error);
+      });
+    }
+  }, [closeHedge, price.data, rule]);
+
   const value = useMemo<AutoHedgeContextValue>(
     () => ({
       arm,
       chainId: activeChainId,
+      closeHedge,
       disarm,
       disconnectHyperliquid,
       enableHyperliquid,
       hyperliquidLink,
+      isClosing,
       isHyperliquidBusy,
       isExecuting,
       isHydrated: hydratedKey === key,
@@ -1394,10 +1710,12 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
     [
       activeChainId,
       arm,
+      closeHedge,
       disarm,
       disconnectHyperliquid,
       enableHyperliquid,
       hyperliquidLink,
+      isClosing,
       isHyperliquidBusy,
       isExecuting,
       hydratedKey,

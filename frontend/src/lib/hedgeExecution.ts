@@ -39,6 +39,8 @@ export type HedgeExecutionContext = {
 export type HedgeExecutionOrder = {
   direction: "short";
   idempotencyKey: string;
+  isCross?: boolean;
+  leverage?: number;
   market: string;
   network: string;
   orderType: "market";

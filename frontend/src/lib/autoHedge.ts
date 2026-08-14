@@ -10,7 +10,16 @@ import {
 
 export type AutoHedgeStatus = "off" | "armed" | "triggered" | "error";
 export type AutoHedgeTriggerType = "absolute" | "percent-drop";
+export type AutoHedgeTriggerMode = "single" | "trailing" | "ladder";
+export type AutoHedgeMarginMode = "cross" | "isolated";
 export type HedgeExecutionStatus = "pending" | "success" | "failed";
+
+// One step of a protection ladder: hedge `sizePercent`% of the position once
+// the price drops `threshold`% below the reference price.
+export type AutoHedgeTranche = {
+  threshold: string;
+  sizePercent: number;
+};
 export type HedgeVenue =
   | "flamix"
   | "hyperliquid"
@@ -21,7 +30,7 @@ export type HedgeExecutionEvent = {
   adapter: string | null;
   adapterMode: "record" | "live" | null;
   completedAt: number | null;
-  direction: "short" | null;
+  direction: "short" | "buy" | null;
   error: string | null;
   executionId: string | null;
   externalOrderId: string | null;
@@ -36,21 +45,40 @@ export type HedgeExecutionEvent = {
 };
 
 export type AutoHedgeRule = {
+  // Auto-close: buy the hedge back when XRP recovers to within
+  // `autoClosePercent`% of the reference price (0 = off).
+  autoClosePercent?: number;
   chainId: SupportedChainId;
   createdAt: number;
   enabled: boolean;
   error: string | null;
+  // True once the protective short is open (set on successful execution,
+  // cleared when the hedge is closed).
+  hedgeOpen?: boolean;
   hedgeAmountFxrp: string;
   hedgeSizePercent: number;
   id: string;
   lastExecution: HedgeExecutionEvent | null;
   lastIntent: HedgeIntent | null;
   lastObservedPriceUsd: string;
+  // Perpetual leverage applied on Hyperliquid before opening the short.
+  leverage?: number;
+  marginMode?: AutoHedgeMarginMode;
+  // Index of the next ladder tranche to evaluate (starts at 0).
+  nextTrancheIndex?: number;
   owner: Address;
   positionFxrp: string;
+  // Re-arm the rule automatically after the hedge is closed.
+  rearm?: boolean;
   referencePriceUsd: string;
   status: AutoHedgeStatus;
   threshold: string;
+  // Highest XRP price observed since arming (trailing-stop reference).
+  trailingHighUsd?: string | null;
+  // Distance (percent) the price must fall from its high to trigger.
+  trailingStopPercent?: number;
+  tranches?: AutoHedgeTranche[];
+  triggerMode?: AutoHedgeTriggerMode;
   triggerType: AutoHedgeTriggerType;
   triggeredAt: number | null;
   updatedAt: number;
@@ -76,6 +104,9 @@ export type HedgeIntent = {
   };
   hedgeSizePercent: number;
   id: string;
+  // Perpetual leverage requested on the venue (1-50).
+  leverage?: number;
+  marginMode?: AutoHedgeMarginMode;
   positionFxrpAmount: string;
   priceSource: {
     feedId: string;
@@ -87,6 +118,8 @@ export type HedgeIntent = {
   protectedXrpAmount: string;
   status: HedgeExecutionStatus;
   timestamp: number;
+  // Which ladder tranche produced this intent (null for single/trailing).
+  trancheIndex?: number | null;
   trigger: {
     observedPriceUsd: string;
     referencePriceUsd: string;
@@ -129,6 +162,40 @@ function configuredExecutionTarget(chainId: SupportedChainId) {
 
 export function getConfiguredExecutionTarget(chainId: SupportedChainId) {
   return configuredExecutionTarget(chainId);
+}
+
+// A rule with every optional field filled in with its default, so callers can
+// read leverage/marginMode/triggerMode/etc. without null checks. Old stored
+// rules (v1) lack these fields; the defaults keep them fully functional.
+export type NormalizedAutoHedgeRule = AutoHedgeRule & {
+  autoClosePercent: number;
+  hedgeOpen: boolean;
+  leverage: number;
+  marginMode: AutoHedgeMarginMode;
+  nextTrancheIndex: number;
+  rearm: boolean;
+  trailingHighUsd: string;
+  trailingStopPercent: number;
+  tranches: AutoHedgeTranche[];
+  triggerMode: AutoHedgeTriggerMode;
+};
+
+export function normalizeAutoHedgeRule(
+  rule: AutoHedgeRule,
+): NormalizedAutoHedgeRule {
+  return {
+    ...rule,
+    autoClosePercent: rule.autoClosePercent ?? 0,
+    hedgeOpen: rule.hedgeOpen ?? false,
+    leverage: rule.leverage ?? 1,
+    marginMode: rule.marginMode ?? "cross",
+    nextTrancheIndex: rule.nextTrancheIndex ?? 0,
+    rearm: rule.rearm ?? false,
+    trailingHighUsd: rule.trailingHighUsd ?? rule.referencePriceUsd,
+    trailingStopPercent: rule.trailingStopPercent ?? 0,
+    tranches: rule.tranches ?? [],
+    triggerMode: rule.triggerMode ?? "single",
+  };
 }
 
 export function isAutoHedgeRule(
@@ -229,16 +296,101 @@ export function evaluateHedgeTrigger(
   };
 }
 
+export function getTrancheTriggerPriceUsd(
+  rule: Pick<AutoHedgeRule, "referencePriceUsd">,
+  tranche: AutoHedgeTranche,
+) {
+  const referencePrice = positiveNumber(rule.referencePriceUsd);
+  const threshold = positiveNumber(tranche.threshold);
+  if (referencePrice === null || threshold === null || threshold >= 100) {
+    return null;
+  }
+  return referencePrice * (1 - threshold / 100);
+}
+
+// Trailing stop: trigger once the price falls `trailingStopPercent`% below the
+// highest price observed since the rule armed. A new high resets the stop.
+export function evaluateTrailingTrigger(
+  rule: Pick<
+    AutoHedgeRule,
+    "referencePriceUsd" | "trailingHighUsd" | "trailingStopPercent"
+  >,
+  currentPriceUsd: string,
+) {
+  const currentPrice = positiveNumber(currentPriceUsd);
+  const distancePercent = rule.trailingStopPercent ?? 0;
+  if (currentPrice === null || distancePercent <= 0) {
+    return { crossed: false, newHigh: null, triggerPriceUsd: null };
+  }
+  const previousHigh = positiveNumber(
+    rule.trailingHighUsd ?? rule.referencePriceUsd,
+  );
+  if (previousHigh === null) {
+    return { crossed: false, newHigh: currentPrice, triggerPriceUsd: null };
+  }
+  const newHigh = Math.max(previousHigh, currentPrice);
+  const triggerPriceUsd = newHigh * (1 - distancePercent / 100);
+  // A fresh high never triggers on the same observation; the stop rides up.
+  if (newHigh > previousHigh) {
+    return { crossed: false, newHigh, triggerPriceUsd };
+  }
+  return {
+    crossed: currentPrice <= triggerPriceUsd,
+    newHigh,
+    triggerPriceUsd,
+  };
+}
+
+// Ladder: return the index of the next un-executed tranche whose threshold is
+// breached (thresholds ascend, so the shallowest un-executed breach wins).
+export function evaluateLadderTrigger(
+  rule: Pick<
+    AutoHedgeRule,
+    "nextTrancheIndex" | "referencePriceUsd" | "tranches"
+  >,
+  currentPriceUsd: string,
+) {
+  const currentPrice = positiveNumber(currentPriceUsd);
+  const tranches = rule.tranches ?? [];
+  const start = Math.min(
+    Math.max(rule.nextTrancheIndex ?? 0, 0),
+    tranches.length,
+  );
+  if (currentPrice === null || start >= tranches.length) {
+    return { trancheIndex: -1, triggerPriceUsd: null };
+  }
+  for (let index = start; index < tranches.length; index += 1) {
+    const triggerPriceUsd = getTrancheTriggerPriceUsd(rule, tranches[index]);
+    if (
+      triggerPriceUsd !== null &&
+      currentPrice <= triggerPriceUsd
+    ) {
+      return { trancheIndex: index, triggerPriceUsd };
+    }
+  }
+  return { trancheIndex: -1, triggerPriceUsd: null };
+}
+
 export function createHedgeIntent({
   hedgeAmountFxrp,
   price,
   rule,
   triggerPriceUsd,
+  hedgeSizePercent = rule.hedgeSizePercent,
+  leverage,
+  marginMode,
+  threshold = rule.threshold,
+  trancheIndex = null,
 }: {
   hedgeAmountFxrp: string;
   price: FtsoXrpPrice;
   rule: AutoHedgeRule;
   triggerPriceUsd: number;
+  hedgeSizePercent?: number;
+  leverage?: number;
+  marginMode?: AutoHedgeMarginMode;
+  threshold?: string;
+  trancheIndex?: number | null;
 }): HedgeIntent {
   const timestamp = Date.now();
   const chain = getSupportedChain(rule.chainId);
@@ -260,8 +412,10 @@ export function createHedgeIntent({
       side: "sell",
       timeInForce: "ioc",
     },
-    hedgeSizePercent: rule.hedgeSizePercent,
+    hedgeSizePercent,
     id: `${rule.id}:${timestamp}`,
+    leverage,
+    marginMode,
     positionFxrpAmount: rule.positionFxrp,
     priceSource: {
       feedId: price.feedId,
@@ -273,10 +427,11 @@ export function createHedgeIntent({
     protectedXrpAmount: hedgeAmountFxrp,
     status: "pending",
     timestamp,
+    trancheIndex,
     trigger: {
       observedPriceUsd: price.priceUsd,
       referencePriceUsd: rule.referencePriceUsd,
-      threshold: rule.threshold,
+      threshold,
       triggerPriceUsd: triggerPriceUsd.toString(),
       triggerType: rule.triggerType,
     },

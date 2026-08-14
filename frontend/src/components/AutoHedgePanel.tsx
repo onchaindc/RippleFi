@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   AlertTriangle,
   CheckCircle2,
   Clock3,
@@ -17,12 +18,21 @@ import type { VaultState } from "@/hooks/useVault";
 import { useAutoHedge } from "@/components/AutoHedgeProvider";
 import {
   getConfiguredExecutionTarget,
+  getTrancheTriggerPriceUsd,
   getTriggerPriceUsd,
+  normalizeAutoHedgeRule,
+  type AutoHedgeMarginMode,
   type AutoHedgeStatus,
+  type AutoHedgeTranche,
+  type AutoHedgeTriggerMode,
   type AutoHedgeTriggerType,
   type HedgeExecutionStatus,
 } from "@/lib/autoHedge";
 import { compactError, productErrorMessage } from "@/lib/feedback";
+import {
+  useHyperliquidPosition,
+  type HyperliquidPosition,
+} from "@/hooks/useHyperliquidPosition";
 
 const statusStyles: Record<AutoHedgeStatus, string> = {
   armed: "border-[#4de2ad]/25 bg-[#4de2ad]/[0.07] text-[#82e8c2]",
@@ -92,6 +102,19 @@ export function AutoHedgePanel({
     useState<AutoHedgeTriggerType>("percent-drop");
   const [threshold, setThreshold] = useState("10");
   const [hedgeSizePercent, setHedgeSizePercent] = useState(50);
+  const [leverage, setLeverage] = useState(1);
+  const [marginMode, setMarginMode] =
+    useState<AutoHedgeMarginMode>("cross");
+  const [triggerMode, setTriggerMode] =
+    useState<AutoHedgeTriggerMode>("single");
+  const [trailingStopPercent, setTrailingStopPercent] = useState(5);
+  const [tranches, setTranches] = useState<AutoHedgeTranche[]>([
+    { threshold: "10", sizePercent: 50 },
+    { threshold: "20", sizePercent: 50 },
+  ]);
+  const [autoCloseEnabled, setAutoCloseEnabled] = useState(false);
+  const [autoClosePercent, setAutoClosePercent] = useState(2);
+  const [rearm, setRearm] = useState(false);
   const [message, setMessage] = useState("");
   const rule = autoHedge.rule;
   const status = rule?.status ?? "off";
@@ -109,6 +132,7 @@ export function AutoHedgePanel({
   const hedgeAmountFxrp = formatUnits(hedgeAmountRaw, vault.decimals);
   const currentReference =
     rule?.referencePriceUsd || autoHedge.price.data?.priceUsd || "";
+  const normalizedRule = rule ? normalizeAutoHedgeRule(rule) : null;
   const savedHedgeSizePercent = rule?.hedgeSizePercent;
   const savedRuleId = rule?.id;
   const savedThreshold = rule?.threshold;
@@ -118,10 +142,45 @@ export function AutoHedgePanel({
     threshold: rule?.threshold ?? threshold,
     triggerType: rule?.triggerType ?? triggerType,
   });
+  const executionTarget = getConfiguredExecutionTarget(autoHedge.chainId);
+  const hedgeMarket = executionTarget.market;
+  const {
+    error: positionError,
+    position,
+  } = useHyperliquidPosition(autoHedge.hyperliquidLink, hedgeMarket);
   const triggeredIntent = rule?.lastIntent;
+  const activeTriggerMode = rule?.triggerMode ?? triggerMode;
+  const nextTrancheIndex = normalizedRule?.nextTrancheIndex ?? 0;
+  const nextTranche =
+    normalizedRule?.triggerMode === "ladder" &&
+    normalizedRule.tranches.length > 0
+      ? (normalizedRule.tranches[nextTrancheIndex] ??
+        normalizedRule.tranches[normalizedRule.tranches.length - 1])
+      : null;
+  const nextTrancheTrigger =
+    normalizedRule && nextTranche
+      ? getTrancheTriggerPriceUsd(normalizedRule, nextTranche)
+      : null;
   const displayedTriggerPrice =
     triggeredIntent?.trigger.triggerPriceUsd ??
-    (triggerPrice === null ? undefined : String(triggerPrice));
+    (activeTriggerMode === "trailing"
+      ? undefined
+      : activeTriggerMode === "ladder"
+        ? nextTrancheTrigger === null
+          ? undefined
+          : String(nextTrancheTrigger)
+        : triggerPrice === null
+          ? undefined
+          : String(triggerPrice));
+  const hedgeAmountXrp = Number(hedgeAmountFxrp) || 0;
+  const livePriceUsd = Number(autoHedge.price.data?.priceUsd) || 0;
+  const hedgeNotionalUsd = hedgeAmountXrp * livePriceUsd;
+  const marginRequiredUsd =
+    leverage > 0 ? hedgeNotionalUsd / leverage : 0;
+  const estLiquidationPrice =
+    leverage > 0 && livePriceUsd > 0
+      ? livePriceUsd * (1 + 1 / leverage)
+      : null;
   const displayedProtectedSize =
     triggeredIntent?.protectedFxrpAmount ??
     rule?.hedgeAmountFxrp ??
@@ -169,16 +228,31 @@ export function AutoHedgePanel({
       !savedRuleId ||
       savedHedgeSizePercent === undefined ||
       !savedThreshold ||
-      !savedTriggerType
+      !savedTriggerType ||
+      !normalizedRule
     ) {
       return;
     }
+    const saved = normalizedRule;
     queueMicrotask(() => {
       setTriggerType(savedTriggerType);
       setThreshold(savedThreshold);
       setHedgeSizePercent(savedHedgeSizePercent);
+      setLeverage(saved.leverage);
+      setMarginMode(saved.marginMode);
+      setTriggerMode(saved.triggerMode);
+      setTrailingStopPercent(saved.trailingStopPercent);
+      if (saved.tranches.length > 0) {
+        setTranches(saved.tranches);
+      }
+      setAutoCloseEnabled(saved.autoClosePercent > 0);
+      setAutoClosePercent(
+        saved.autoClosePercent > 0 ? saved.autoClosePercent : 2,
+      );
+      setRearm(saved.rearm);
     });
   }, [
+    normalizedRule,
     savedHedgeSizePercent,
     savedRuleId,
     savedThreshold,
@@ -199,10 +273,20 @@ export function AutoHedgePanel({
         setMessage("Protection rule disabled.");
       } else {
         await autoHedge.arm({
+          autoClosePercent: autoCloseEnabled ? autoClosePercent : 0,
           hedgeAmountFxrp,
           hedgeSizePercent,
+          leverage,
+          marginMode,
           positionFxrp,
-          threshold,
+          rearm,
+          threshold:
+            triggerMode === "ladder"
+              ? tranches[0]?.threshold || threshold
+              : threshold,
+          trailingStopPercent,
+          tranches: triggerMode === "ladder" ? tranches : [],
+          triggerMode,
           triggerType,
         });
         setMessage("Protection rule armed.");
@@ -471,16 +555,322 @@ export function AutoHedgePanel({
               </div>
             </div>
           </div>
+
+          <div className="mt-5 border-t border-white/[0.06] pt-4">
+            <span className="text-[10px] font-semibold uppercase text-[#68737d]">
+              Trigger mode
+            </span>
+            <div className="mt-2 grid grid-cols-3 rounded-md border border-white/10 bg-[#080b0f]/70 p-1">
+              {(["single", "trailing", "ladder"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setTriggerMode(mode)}
+                  disabled={controlsLocked}
+                  className={`h-9 rounded px-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    triggerMode === mode
+                      ? "bg-[#172331] text-[#9bd3f5]"
+                      : "text-[#7d8790]"
+                  }`}
+                >
+                  {mode === "single"
+                    ? "Single"
+                    : mode === "trailing"
+                      ? "Trailing"
+                      : "Ladder"}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] leading-4 text-[#5f6972]">
+              {triggerMode === "single"
+                ? "One shot when the price crosses the threshold above."
+                : triggerMode === "trailing"
+                  ? "The stop rides up as XRP rallies, then triggers on a drop from the high."
+                  : "Add protection in steps as the drop deepens."}
+            </p>
+
+            {triggerMode === "trailing" ? (
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="text-xs font-medium text-[#89939e]">
+                    Trailing distance
+                  </span>
+                  <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3 focus-within:border-[#71b9e6]/50">
+                    <input
+                      value={trailingStopPercent}
+                      onChange={(event) =>
+                        setTrailingStopPercent(Number(event.target.value))
+                      }
+                      disabled={controlsLocked}
+                      inputMode="decimal"
+                      aria-label="Trailing stop distance percent"
+                      className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none disabled:opacity-60"
+                    />
+                    <span className="ml-2 text-sm text-[#68737d]">%</span>
+                  </div>
+                </label>
+                <p className="self-end pb-2 text-[11px] leading-4 text-[#68737d]">
+                  Triggers when XRP falls {trailingStopPercent}% from its
+                  recent high.
+                </p>
+              </div>
+            ) : null}
+
+            {triggerMode === "ladder" ? (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[#89939e]">
+                    Ladder tranches
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTranches((current) => [
+                        ...current,
+                        { threshold: "25", sizePercent: 25 },
+                      ])
+                    }
+                    disabled={controlsLocked || tranches.length >= 4}
+                    className="rounded-full border border-[#71b9e6]/30 px-2.5 py-1 text-[10px] font-semibold text-[#71b9e6] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    + Add tranche
+                  </button>
+                </div>
+                {tranches.map((tranche, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-md border border-white/10 bg-[#080b0f]/70 p-2"
+                  >
+                    <div className="flex h-9 items-center rounded border border-white/10 bg-transparent px-2">
+                      <input
+                        value={tranche.threshold}
+                        onChange={(event) =>
+                          setTranches((current) =>
+                            current.map((t, i) =>
+                              i === index
+                                ? { ...t, threshold: event.target.value }
+                                : t,
+                            ),
+                          )
+                        }
+                        disabled={controlsLocked}
+                        inputMode="decimal"
+                        aria-label={`Tranche ${index + 1} drop percent`}
+                        className="w-full min-w-0 bg-transparent font-mono text-xs outline-none disabled:opacity-60"
+                      />
+                      <span className="ml-1 text-[10px] text-[#68737d]">
+                        % drop
+                      </span>
+                    </div>
+                    <div className="flex h-9 items-center rounded border border-white/10 bg-transparent px-2">
+                      <input
+                        type="range"
+                        min="5"
+                        max="100"
+                        step="5"
+                        value={tranche.sizePercent}
+                        onChange={(event) =>
+                          setTranches((current) =>
+                            current.map((t, i) =>
+                              i === index
+                                ? {
+                                    ...t,
+                                    sizePercent: Number(event.target.value),
+                                  }
+                                : t,
+                            ),
+                          )
+                        }
+                        disabled={controlsLocked}
+                        aria-label={`Tranche ${index + 1} size percent`}
+                        className="w-full cursor-pointer accent-[#71b9e6] disabled:opacity-50"
+                      />
+                      <span className="ml-2 w-9 text-right font-mono text-[10px] text-[#cbd2d7]">
+                        {tranche.sizePercent}%
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTranches((current) =>
+                          current.filter((_, i) => i !== index),
+                        )
+                      }
+                      disabled={controlsLocked || tranches.length <= 1}
+                      aria-label={`Remove tranche ${index + 1}`}
+                      className="flex size-8 items-center justify-center rounded-md border border-white/10 text-[#68737d] transition hover:border-[#df6b6b]/40 hover:text-[#f0a3a3] disabled:opacity-40"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-5 border-t border-white/[0.06] pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium text-[#89939e]">
+                Leverage
+              </span>
+              <span className="font-mono text-[#cbd2d7]">{leverage}x</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="50"
+              step="1"
+              value={leverage}
+              onChange={(event) => setLeverage(Number(event.target.value))}
+              disabled={controlsLocked}
+              aria-label="Leverage"
+              className="mt-3 h-2 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <div className="mt-2 flex justify-between text-[10px] text-[#5f6972]">
+              <span>1x</span>
+              <span>50x</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 rounded-md border border-white/10 bg-[#080b0f]/70 p-1">
+              <button
+                type="button"
+                onClick={() => setMarginMode("cross")}
+                disabled={controlsLocked}
+                className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  marginMode === "cross"
+                    ? "bg-[#172331] text-[#9bd3f5]"
+                    : "text-[#7d8790]"
+                }`}
+              >
+                Cross
+              </button>
+              <button
+                type="button"
+                onClick={() => setMarginMode("isolated")}
+                disabled={controlsLocked}
+                className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  marginMode === "isolated"
+                    ? "bg-[#172331] text-[#9bd3f5]"
+                    : "text-[#7d8790]"
+                }`}
+              >
+                Isolated
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-[10px] leading-4 text-[#68737d]">
+              <span>
+                Margin ≈{" "}
+                <span className="font-mono text-[#cbd2d7]">
+                  ${displayPrice(String(marginRequiredUsd))}
+                </span>
+              </span>
+              <span>
+                {estLiquidationPrice !== null
+                  ? `Est. liq ≈ ${displayPrice(String(estLiquidationPrice))}`
+                  : "Est. liq —"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4 border-t border-white/[0.06] pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-[#89939e]">
+                  Auto-close after recovery
+                </p>
+                <p className="mt-0.5 text-[10px] leading-4 text-[#5f6972]">
+                  Buy the hedge back automatically when XRP recovers.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoCloseEnabled}
+                onClick={() => setAutoCloseEnabled((value) => !value)}
+                disabled={controlsLocked}
+                className={`relative h-6 w-10 shrink-0 rounded-full border transition disabled:opacity-40 ${
+                  autoCloseEnabled
+                    ? "border-[#4de2ad]/50 bg-[#194937]"
+                    : "border-white/15 bg-white/[0.06]"
+                }`}
+              >
+                <span
+                  className={`absolute top-1/2 size-4 -translate-y-1/2 rounded-full transition ${
+                    autoCloseEnabled
+                      ? "left-[21px] bg-[#82e8c2]"
+                      : "left-[3px] bg-[#89939e]"
+                  }`}
+                />
+              </button>
+            </div>
+            {autoCloseEnabled ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[#68737d]">
+                  Recover within
+                </span>
+                <input
+                  value={autoClosePercent}
+                  onChange={(event) =>
+                    setAutoClosePercent(Number(event.target.value))
+                  }
+                  disabled={controlsLocked}
+                  inputMode="decimal"
+                  aria-label="Auto-close recovery percent"
+                  className="h-9 w-16 rounded-md border border-white/10 bg-[#080b0f]/70 px-2 text-center font-mono text-sm outline-none focus:border-[#71b9e6]/50 disabled:opacity-60"
+                />
+                <span className="text-[10px] text-[#68737d]">
+                  % of the pre-drop price
+                </span>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-[#89939e]">Re-arm</p>
+                <p className="mt-0.5 text-[10px] leading-4 text-[#5f6972]">
+                  Watch the next drop automatically after the hedge closes.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={rearm}
+                onClick={() => setRearm((value) => !value)}
+                disabled={controlsLocked}
+                className={`relative h-6 w-10 shrink-0 rounded-full border transition disabled:opacity-40 ${
+                  rearm
+                    ? "border-[#4de2ad]/50 bg-[#194937]"
+                    : "border-white/15 bg-white/[0.06]"
+                }`}
+              >
+                <span
+                  className={`absolute top-1/2 size-4 -translate-y-1/2 rounded-full transition ${
+                    rearm
+                      ? "left-[21px] bg-[#82e8c2]"
+                      : "left-[3px] bg-[#89939e]"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="border-t border-white/[0.06] bg-white/[0.015] px-4 py-4 sm:px-5 lg:border-l lg:border-t-0">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <HedgeMetric
-              label="Trigger price"
+              label={
+                activeTriggerMode === "ladder"
+                  ? "Next tranche"
+                  : activeTriggerMode === "trailing"
+                    ? "Trailing high"
+                    : "Trigger price"
+              }
               value={
-                displayedTriggerPrice
-                  ? `$${displayPrice(displayedTriggerPrice)}`
-                  : "--"
+                activeTriggerMode === "trailing"
+                  ? normalizedRule?.trailingHighUsd
+                    ? `$${displayPrice(normalizedRule.trailingHighUsd)}`
+                    : "--"
+                  : displayedTriggerPrice
+                    ? `$${displayPrice(displayedTriggerPrice)}`
+                    : "--"
               }
             />
             <HedgeMetric
@@ -634,6 +1024,21 @@ export function AutoHedgePanel({
           </div>
         </div>
       </div>
+      {hyperliquidReady ? (
+        <LiveHedgeCard
+          isClosing={autoHedge.isClosing}
+          market={hedgeMarket}
+          onClose={() => {
+            setMessage("");
+            autoHedge
+              .closeHedge()
+              .then(() => setMessage("Hedge closed."))
+              .catch((error) => setMessage(readError(error)));
+          }}
+          position={position}
+          positionError={positionError}
+        />
+      ) : null}
     </section>
   );
 }
@@ -685,6 +1090,112 @@ function HedgeMetric({ label, value }: { label: string; value: string }) {
       <p className="mt-1 truncate font-mono text-xs font-semibold text-[#d7dcdf]">
         {value}
       </p>
+    </div>
+  );
+}
+
+function LiveHedgeCard({
+  isClosing,
+  market,
+  onClose,
+  position,
+  positionError,
+}: {
+  isClosing: boolean;
+  market: string;
+  onClose: () => void;
+  position: HyperliquidPosition | null;
+  positionError: string | null;
+}) {
+  const pnl = position?.unrealizedPnl ?? null;
+  return (
+    <div className="border-t border-white/[0.06] bg-white/[0.012] px-4 py-4 sm:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Activity aria-hidden="true" size={14} className="text-[#71b9e6]" />
+          <p className="text-xs font-semibold text-[#d7dcdf]">
+            Live hedge — {market} perp
+          </p>
+          {position ? (
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                pnl !== null && pnl < 0
+                  ? executionStyles.failed
+                  : executionStyles.success
+              }`}
+            >
+              Short
+            </span>
+          ) : null}
+        </div>
+        {position ? (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isClosing}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#f2b84b]/35 bg-[#f2b84b]/[0.08] px-4 text-xs font-semibold text-[#f4cd7d] transition hover:bg-[#f2b84b]/[0.13] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isClosing ? (
+              <LoaderCircle
+                aria-hidden="true"
+                size={13}
+                className="animate-spin"
+              />
+            ) : (
+              <Unplug aria-hidden="true" size={13} />
+            )}
+            {isClosing ? "Closing" : "Close hedge"}
+          </button>
+        ) : null}
+      </div>
+      {position ? (
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+          <HedgeMetric
+            label="Entry"
+            value={`$${displayPrice(String(position.entryPx))}`}
+          />
+          <HedgeMetric
+            label="Mark"
+            value={`$${displayPrice(String(position.markPx))}`}
+          />
+          <HedgeMetric
+            label="Size"
+            value={`${displayPrice(String(position.size))} ${position.coin}`}
+          />
+          <HedgeMetric
+            label="Unrealized PnL"
+            value={`${
+              pnl !== null && pnl < 0 ? "−" : "+"
+            }$${displayPrice(String(Math.abs(pnl ?? 0)))}`}
+          />
+          <HedgeMetric
+            label="Leverage"
+            value={`${position.leverage}x ${position.marginMode}`}
+          />
+          <HedgeMetric
+            label="Liquidation"
+            value={
+              position.liquidationPx !== null
+                ? `$${displayPrice(String(position.liquidationPx))}`
+                : "--"
+            }
+          />
+          <HedgeMetric
+            label="Notional"
+            value={`$${displayPrice(String(position.notional))}`}
+          />
+          <HedgeMetric
+            label="Status"
+            value={position.size > 0 ? "Open" : "Flat"}
+          />
+        </div>
+      ) : positionError ? (
+        <p className="mt-3 text-[11px] text-[#df6b6b]">{positionError}</p>
+      ) : (
+        <p className="mt-3 text-[11px] leading-4 text-[#68737d]">
+          No open {market} hedge right now.
+        </p>
+      )}
     </div>
   );
 }
