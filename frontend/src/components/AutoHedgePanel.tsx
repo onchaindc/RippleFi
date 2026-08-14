@@ -566,13 +566,13 @@ export function AutoHedgePanel({
               Allow protective shorts on your Hyperliquid account.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             {hyperliquidReady ? null : (
               <button
                 type="button"
                 onClick={enableHyperliquid}
                 disabled={autoHedge.isHyperliquidBusy || !vault.address}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-[#4de2ad]/35 bg-[#4de2ad]/[0.08] px-4 text-xs font-semibold text-[#82e8c2] transition hover:bg-[#4de2ad]/[0.13] disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-[#4de2ad]/35 bg-[#4de2ad]/[0.08] px-4 text-xs font-semibold text-[#82e8c2] transition hover:bg-[#4de2ad]/[0.13] disabled:cursor-not-allowed disabled:opacity-45 sm:h-9 sm:w-auto"
               >
                 {autoHedge.isHyperliquidBusy ? (
                   <LoaderCircle
@@ -595,7 +595,7 @@ export function AutoHedgePanel({
                 type="button"
                 onClick={disconnectHyperliquid}
                 disabled={autoHedge.isHyperliquidBusy}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-white/10 px-3 text-xs font-semibold text-[#89939e] transition hover:border-[#df6b6b]/30 hover:text-[#f0a3a3] disabled:opacity-50"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/10 px-3 text-xs font-semibold text-[#89939e] transition hover:border-[#df6b6b]/30 hover:text-[#f0a3a3] disabled:opacity-50 sm:h-9 sm:w-auto"
               >
                 <Unplug aria-hidden="true" size={13} />
                 Turn off
@@ -614,7 +614,7 @@ export function AutoHedgePanel({
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-        <div className="px-4 py-5 sm:px-5 sm:py-6">
+        <div className="px-4 py-6 sm:px-5 sm:py-6">
           {controlsLocked ? (
             <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border border-[#f2b84b]/25 bg-[#f2b84b]/[0.06] px-3 py-2.5 text-xs leading-4 text-[#c8aa6c]">
               <Lock
@@ -738,7 +738,7 @@ export function AutoHedgePanel({
             ) : null}
           </div>
 
-          <div className="mt-5 border-t border-white/[0.06] pt-4">
+          <div className="mt-6 border-t border-white/[0.06] pt-4 sm:mt-5">
             <span className="text-sm font-semibold uppercase text-[#68737d] sm:text-sm">
               Trigger mode
             </span>
@@ -887,7 +887,7 @@ export function AutoHedgePanel({
                       }
                       disabled={controlsLocked || tranches.length <= 1}
                       aria-label={`Remove tranche ${index + 1}`}
-                      className="flex size-8 items-center justify-center rounded-md border border-white/10 text-[#68737d] transition hover:border-[#df6b6b]/40 hover:text-[#f0a3a3] disabled:opacity-40"
+                      className="flex h-9 w-full items-center justify-center rounded-md border border-white/10 text-[#68737d] transition hover:border-[#df6b6b]/40 hover:text-[#f0a3a3] disabled:opacity-40 sm:h-8 sm:w-8 sm:shrink-0"
                     >
                       ✕
                     </button>
@@ -897,7 +897,7 @@ export function AutoHedgePanel({
             ) : null}
           </div>
 
-          <div className="mt-5 border-t border-white/[0.06] pt-4">
+          <div className="mt-6 border-t border-white/[0.06] pt-4 sm:mt-5">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium text-[#89939e]">
                 Leverage
@@ -960,8 +960,8 @@ export function AutoHedgePanel({
             </div>
           </div>
 
-          <div className="mt-5 space-y-4 border-t border-white/[0.06] pt-4">
-            <div className="flex items-center justify-between gap-3">
+          <div className="mt-6 space-y-5 border-t border-white/[0.06] pt-4 sm:mt-5 sm:space-y-4">
+            <div className="flex items-center justify-between gap-4 sm:gap-3">
               <div>
                 <p className="text-sm font-medium text-[#89939e]">
                   Auto-close after recovery
@@ -976,23 +976,23 @@ export function AutoHedgePanel({
                 aria-checked={autoCloseEnabled}
                 onClick={() => setAutoCloseEnabled((value) => !value)}
                 disabled={controlsLocked}
-                className={`relative h-6 w-10 shrink-0 rounded-full border transition disabled:opacity-40 ${
+                className={`relative h-7 w-12 shrink-0 rounded-full border transition disabled:opacity-40 sm:h-6 sm:w-10 ${
                   autoCloseEnabled
                     ? "border-[#4de2ad]/50 bg-[#194937]"
                     : "border-white/15 bg-white/[0.06]"
                 }`}
               >
                 <span
-                  className={`absolute top-1/2 size-4 -translate-y-1/2 rounded-full transition ${
+                  className={`absolute top-1/2 size-5 -translate-y-1/2 rounded-full transition sm:size-4 ${
                     autoCloseEnabled
-                      ? "left-[21px] bg-[#82e8c2]"
+                      ? "left-[25px] bg-[#82e8c2] sm:left-[21px]"
                       : "left-[3px] bg-[#89939e]"
                   }`}
                 />
               </button>
             </div>
             {autoCloseEnabled ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-[#68737d]">
                   Recover within
                 </span>
@@ -1011,7 +1011,7 @@ export function AutoHedgePanel({
                 </span>
               </div>
             ) : null}
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-4 sm:gap-3">
               <div>
                 <p className="text-sm font-medium text-[#89939e]">Re-arm</p>
                 <p className="mt-0.5 text-xs leading-4 text-[#5f6972]">
@@ -1024,16 +1024,16 @@ export function AutoHedgePanel({
                 aria-checked={rearm}
                 onClick={() => setRearm((value) => !value)}
                 disabled={controlsLocked}
-                className={`relative h-6 w-10 shrink-0 rounded-full border transition disabled:opacity-40 ${
+                className={`relative h-7 w-12 shrink-0 rounded-full border transition disabled:opacity-40 sm:h-6 sm:w-10 ${
                   rearm
                     ? "border-[#4de2ad]/50 bg-[#194937]"
                     : "border-white/15 bg-white/[0.06]"
                 }`}
               >
                 <span
-                  className={`absolute top-1/2 size-4 -translate-y-1/2 rounded-full transition ${
+                  className={`absolute top-1/2 size-5 -translate-y-1/2 rounded-full transition sm:size-4 ${
                     rearm
-                      ? "left-[21px] bg-[#82e8c2]"
+                      ? "left-[25px] bg-[#82e8c2] sm:left-[21px]"
                       : "left-[3px] bg-[#89939e]"
                   }`}
                 />
@@ -1063,12 +1063,12 @@ export function AutoHedgePanel({
                   className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:text-[#5f6972] disabled:opacity-60"
                 />
               </div>
-              <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
                   onClick={() => void sendTestEmail()}
                   disabled={testingEmail || controlsLocked}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-[#71b9e6]/30 px-3 text-xs font-semibold text-[#9bd3f5] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full border border-[#71b9e6]/30 px-4 text-xs font-semibold text-[#9bd3f5] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:h-8 sm:w-auto"
                 >
                   {testingEmail ? (
                     <LoaderCircle
