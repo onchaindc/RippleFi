@@ -409,7 +409,9 @@ export function AutoHedgePanel({
     try {
       const token = await autoHedge.authorizeDevice();
       if (!token) {
-        throw new Error("Approve this device before sending alerts.");
+        throw new Error(
+          "Approve this device first — a wallet popup should open asking you to sign. If no popup appears, check your browser's popup blocker and that the wallet extension is unlocked.",
+        );
       }
       const response = await fetch("/api/auto-hedge/alert/test", {
         body: JSON.stringify({

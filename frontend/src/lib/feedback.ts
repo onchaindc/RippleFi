@@ -142,10 +142,7 @@ export function productErrorMessage(
       normalized.includes("no xrp"))
   ) {
     return "Live XRP price is temporarily unavailable.";
-  }
-
-  if (
-    normalized.includes("user rejected") ||
+  }  if (normalized.includes("user rejected") ||
     normalized.includes("user denied") ||
     normalized.includes("request rejected")
   ) {
@@ -153,6 +150,15 @@ export function productErrorMessage(
   }
   if (normalized.includes("already pending")) {
     return "Wallet request already open.";
+  }
+
+  // The wallet-signature timeout hint is long and specific; match it before
+  // the generic length cap can swallow it into an unhelpful fallback.
+  if (normalized.includes("wasn't confirmed in time") ||
+    normalized.includes("antivirus") ||
+    normalized.includes("whitelist api.hyperliquid")
+  ) {
+    return "The wallet request wasn't confirmed in time. If the wallet popup is stuck loading, your antivirus/firewall may be blocking the Hyperliquid API - whitelist api.hyperliquid-testnet.xyz and api.hyperliquid.xyz, then retry.";
   }
 
   if (
@@ -211,6 +217,17 @@ export function productErrorMessage(
 
   if (!message) {
     return fallback;
+  }
+
+  // Long wallet/provider rejections that carry a recognizable reason (e.g.
+  // MetaMask's verbose rejection payloads) should surface rather than fall
+  // back, but only when they aren't stack traces.
+  if (message.length > 120 &&
+    /(?:user rejected|user denied|request rejected|not confirmed in time)/i.test(
+      normalized,
+    )
+  ) {
+    return "The wallet didn't confirm the request. Open the wallet popup and approve it, or try again.";
   }
 
   const looksTechnical =
