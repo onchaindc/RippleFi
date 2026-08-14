@@ -127,9 +127,6 @@ export function AutoHedgePanel({
   // A pending receipt only locks the form while the execution is actually
   // in flight. If the venue never settles, a stale "pending" would otherwise
   // disable every control - including the power toggle - forever.
-  // A pending receipt only locks the form while the execution is actually
-  // in flight. If the venue never settles, a stale "pending" would otherwise
-  // disable every control - including the power toggle - forever.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (execution?.status !== "pending") {
@@ -492,7 +489,7 @@ export function AutoHedgePanel({
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-        <div className="px-4 py-4 sm:px-5">
+        <div className="px-4 py-5 sm:px-5 sm:py-6">
           {controlsLocked ? (
             <div className="mb-4 flex items-start gap-2 rounded-md border border-[#f2b84b]/25 bg-[#f2b84b]/[0.06] px-3 py-2.5 text-[11px] leading-4 text-[#c8aa6c]">
               <Lock
@@ -508,7 +505,7 @@ export function AutoHedgePanel({
             </div>
           ) : null}
           <div>
-            <span className="text-[10px] font-semibold uppercase text-[#68737d]">
+            <span className="text-[11px] font-semibold uppercase text-[#68737d] sm:text-[10px]">
               Trigger
             </span>
             {triggerMode === "single" ? (
@@ -517,7 +514,7 @@ export function AutoHedgePanel({
                   type="button"
                   onClick={() => setTriggerType("percent-drop")}
                   disabled={controlsLocked}
-                  className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`h-10 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 ${
                     triggerType === "percent-drop"
                       ? "bg-[#172331] text-[#9bd3f5]"
                       : "text-[#7d8790]"
@@ -529,7 +526,7 @@ export function AutoHedgePanel({
                   type="button"
                   onClick={() => setTriggerType("absolute")}
                   disabled={controlsLocked}
-                  className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`h-10 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 ${
                     triggerType === "absolute"
                       ? "bg-[#172331] text-[#9bd3f5]"
                       : "text-[#7d8790]"
@@ -595,9 +592,9 @@ export function AutoHedgePanel({
                   }
                   disabled={controlsLocked}
                   aria-label="Hedge size percent"
-                  className="mt-3 h-2 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-3 h-3 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50 sm:h-2"
                 />
-                <div className="mt-2 flex justify-between text-[10px] text-[#5f6972]">
+                <div className="mt-2 flex justify-between text-[11px] text-[#5f6972] sm:text-[10px]">
                   <span>10%</span>
                   <span>100%</span>
                 </div>
@@ -606,7 +603,7 @@ export function AutoHedgePanel({
           </div>
 
           <div className="mt-5 border-t border-white/[0.06] pt-4">
-            <span className="text-[10px] font-semibold uppercase text-[#68737d]">
+            <span className="text-[11px] font-semibold uppercase text-[#68737d] sm:text-[10px]">
               Trigger mode
             </span>
             <div className="mt-2 grid grid-cols-3 rounded-md border border-white/10 bg-[#080b0f]/70 p-1">
@@ -623,7 +620,7 @@ export function AutoHedgePanel({
                     }
                   }}
                   disabled={controlsLocked}
-                  className={`h-9 rounded px-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  className={`h-10 rounded px-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 ${
                     triggerMode === mode
                       ? "bg-[#172331] text-[#9bd3f5]"
                       : "text-[#7d8790]"
@@ -637,7 +634,7 @@ export function AutoHedgePanel({
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[10px] leading-4 text-[#5f6972]">
+            <p className="mt-2 text-[11px] leading-4 text-[#5f6972] sm:text-[10px]">
               {triggerMode === "single"
                 ? "One shot when the price crosses the threshold above."
                 : triggerMode === "trailing"
@@ -646,7 +643,7 @@ export function AutoHedgePanel({
             </p>
 
             {triggerMode === "trailing" ? (
-              <div className="mt-4 grid grid-cols-2 gap-4">
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="text-xs font-medium text-[#89939e]">
                     Trailing distance
@@ -687,16 +684,16 @@ export function AutoHedgePanel({
                       ])
                     }
                     disabled={controlsLocked || tranches.length >= 4}
-                    className="rounded-full border border-[#71b9e6]/30 px-2.5 py-1 text-[10px] font-semibold text-[#71b9e6] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-full border border-[#71b9e6]/30 px-2.5 py-1 text-[11px] font-semibold text-[#71b9e6] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-40 sm:text-[10px]"
                   >
                     + Add tranche
                   </button>
                 </div>
                 {tranches.map((tranche, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-md border border-white/10 bg-[#080b0f]/70 p-2"
-                  >
+                <div
+                  key={index}
+                  className="grid grid-cols-1 items-center gap-2 rounded-md border border-white/10 bg-[#080b0f]/70 p-2.5 sm:grid-cols-[1fr_1fr_auto]"
+                >
                     <div className="flex h-9 items-center rounded border border-white/10 bg-transparent px-2">
                       <input
                         value={tranche.threshold}
@@ -739,7 +736,7 @@ export function AutoHedgePanel({
                         }
                         disabled={controlsLocked}
                         aria-label={`Tranche ${index + 1} size percent`}
-                        className="w-full cursor-pointer accent-[#71b9e6] disabled:opacity-50"
+                        className="h-3 w-full cursor-pointer accent-[#71b9e6] disabled:opacity-50 sm:h-2"
                       />
                       <span className="ml-2 w-9 text-right font-mono text-[10px] text-[#cbd2d7]">
                         {tranche.sizePercent}%
@@ -780,9 +777,9 @@ export function AutoHedgePanel({
               onChange={(event) => setLeverage(Number(event.target.value))}
               disabled={controlsLocked}
               aria-label="Leverage"
-              className="mt-3 h-2 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-3 h-3 w-full cursor-pointer accent-[#71b9e6] disabled:cursor-not-allowed disabled:opacity-50 sm:h-2"
             />
-            <div className="mt-2 flex justify-between text-[10px] text-[#5f6972]">
+            <div className="mt-2 flex justify-between text-[11px] text-[#5f6972] sm:text-[10px]">
               <span>1x</span>
               <span>50x</span>
             </div>
@@ -791,7 +788,7 @@ export function AutoHedgePanel({
                 type="button"
                 onClick={() => setMarginMode("cross")}
                 disabled={controlsLocked}
-                className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`h-10 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 ${
                   marginMode === "cross"
                     ? "bg-[#172331] text-[#9bd3f5]"
                     : "text-[#7d8790]"
@@ -803,7 +800,7 @@ export function AutoHedgePanel({
                 type="button"
                 onClick={() => setMarginMode("isolated")}
                 disabled={controlsLocked}
-                className={`h-9 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`h-10 rounded px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 ${
                   marginMode === "isolated"
                     ? "bg-[#172331] text-[#9bd3f5]"
                     : "text-[#7d8790]"
@@ -812,7 +809,7 @@ export function AutoHedgePanel({
                 Isolated
               </button>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-[10px] leading-4 text-[#68737d]">
+            <div className="mt-3 grid grid-cols-2 gap-3 text-[11px] leading-4 text-[#68737d] sm:text-[10px]">
               <span>
                 Margin ≈{" "}
                 <span className="font-mono text-[#cbd2d7]">
@@ -909,7 +906,7 @@ export function AutoHedgePanel({
           </div>
         </div>
 
-        <div className="border-t border-white/[0.06] bg-white/[0.015] px-4 py-4 sm:px-5 lg:border-l lg:border-t-0">
+        <div className="border-t border-white/[0.06] bg-white/[0.015] px-4 py-5 sm:px-5 lg:border-l lg:border-t-0">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <HedgeMetric
               label={
@@ -1140,10 +1137,10 @@ function ExecutionStep({
 function HedgeMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-semibold uppercase text-[#68737d]">
+      <p className="text-[11px] font-semibold uppercase text-[#68737d] sm:text-[10px]">
         {label}
       </p>
-      <p className="mt-1 truncate font-mono text-xs font-semibold tabular-nums text-[#d7dcdf]">
+      <p className="mt-1 truncate font-mono text-sm font-semibold tabular-nums text-[#d7dcdf] sm:text-xs">
         {value}
       </p>
     </div>

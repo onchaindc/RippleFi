@@ -82,7 +82,7 @@ function MobileBottomNavigation() {
       aria-label="Mobile navigation"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0b0f13]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5">
+      <div className="mx-auto grid w-full max-w-lg grid-cols-6">
         {mobileNavItems.map(({ href, icon: Icon, label }) => {
           const active = pathname === href;
           return (
@@ -90,12 +90,12 @@ function MobileBottomNavigation() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium transition ${
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-1.5 text-[10px] font-medium transition ${
                 active ? "text-[#4de2ad]" : "text-[#7d8790]"
               }`}
             >
               <span
-                className={`flex h-7 min-w-10 items-center justify-center rounded-full px-3 ${
+                className={`flex h-7 min-w-9 items-center justify-center rounded-full px-2.5 ${
                   active ? "bg-[#173329]" : ""
                 }`}
               >
@@ -103,11 +103,17 @@ function MobileBottomNavigation() {
               </span>
               {label === "Dashboard"
                 ? "Home"
-                : label === "Auto-Hedge"
-                  ? "Hedge"
-                  : label === "Smart Accounts"
-                    ? "Smart"
-                    : label}
+                : label === "Earn"
+                  ? "Earn"
+                  : label === "Redeem"
+                    ? "Redeem"
+                    : label === "Spend / Pay"
+                      ? "Pay"
+                      : label === "Auto-Hedge"
+                        ? "Hedge"
+                        : label === "Smart Accounts"
+                          ? "Smart"
+                          : label}
             </Link>
           );
         })}
