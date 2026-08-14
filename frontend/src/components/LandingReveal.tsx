@@ -23,7 +23,7 @@ export function LandingReveal({ children }: { children: ReactNode }) {
       "(prefers-reduced-motion: reduce)",
     );
     if (reducedMotion.matches) {
-      setIsVisible(true);
+      queueMicrotask(() => setIsVisible(true));
       return;
     }
 
