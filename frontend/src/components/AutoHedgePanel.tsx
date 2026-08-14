@@ -7,6 +7,7 @@ import {
   Clock3,
   LoaderCircle,
   Link2,
+  Lock,
   RadioTower,
   Shield,
   Unplug,
@@ -65,6 +66,10 @@ function displayPrice(value: string | undefined) {
   });
 }
 
+// A pending execution receipt only locks the form while it is plausibly still
+// in flight (a market order settles in seconds to a minute).
+const PENDING_LOCK_MS = 2 * 60_000;
+
 function displayTime(value: number | null | undefined) {
   if (!value) {
     return "--";
@@ -119,7 +124,23 @@ export function AutoHedgePanel({
   const rule = autoHedge.rule;
   const status = rule?.status ?? "off";
   const execution = rule?.lastExecution;
-  const executionPending = execution?.status === "pending";
+  // A pending receipt only locks the form while the execution is actually
+  // in flight. If the venue never settles, a stale "pending" would otherwise
+  // disable every control - including the power toggle - forever.
+  // A pending receipt only locks the form while the execution is actually
+  // in flight. If the venue never settles, a stale "pending" would otherwise
+  // disable every control - including the power toggle - forever.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (execution?.status !== "pending") {
+      return;
+    }
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [execution]);
+  const executionPending =
+    execution?.status === "pending" &&
+    (execution.requestedAt ?? 0) > now - PENDING_LOCK_MS;
   const controlsLocked =
     Boolean(rule?.enabled) || autoHedge.isExecuting || executionPending;
   const positionRaw =
@@ -472,6 +493,20 @@ export function AutoHedgePanel({
 
       <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
         <div className="px-4 py-4 sm:px-5">
+          {controlsLocked ? (
+            <div className="mb-4 flex items-start gap-2 rounded-md border border-[#f2b84b]/25 bg-[#f2b84b]/[0.06] px-3 py-2.5 text-[11px] leading-4 text-[#c8aa6c]">
+              <Lock
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+                size={13}
+              />
+              <span>
+                {executionPending
+                  ? "Execution is in progress - settings unlock when it settles."
+                  : "Protection is live - toggle Auto-Hedge off to adjust the settings below."}
+              </span>
+            </div>
+          ) : null}
           <div>
             <span className="text-[10px] font-semibold uppercase text-[#68737d]">
               Trigger
