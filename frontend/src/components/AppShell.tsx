@@ -65,22 +65,25 @@ function Navigation({ tablet = false }: { tablet?: boolean }) {
           : "hidden min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex"
       }
     >
-      <div className="mx-auto flex w-max items-center gap-1">
+      <div className="mx-auto flex w-max items-center gap-2">
         {navItems.map(({ href, icon: Icon, label }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
+              title={label}
               aria-current={active ? "page" : undefined}
-              className={`inline-flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium transition ${
+              className={`inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-xs font-medium transition ${
                 active
                   ? "bg-[#17231f] text-[#82e8c2]"
                   : "text-[#89939e] hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               <Icon aria-hidden="true" size={15} />
-              {label}
+              <span className={tablet ? "inline" : "hidden xl:inline"}>
+                {label}
+              </span>
             </Link>
           );
         })}
@@ -164,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 priority
                 className="size-9 shrink-0 object-contain md:size-10"
               />
-              <span className="hidden min-w-0 md:block">
+              <span className="hidden min-w-0 2xl:block">
                 <span className="block text-lg font-semibold">RippleFI</span>
                 <span className="block truncate text-xs text-[#89939e]">
                   XRP earn and spend vault
@@ -174,7 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             <Navigation />
 
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+            <div className="flex shrink-0 items-center gap-2">
               <Link
                 href="/docs"
                 className="hidden h-10 shrink-0 items-center gap-2 rounded-lg border border-[#4de2ad]/25 bg-[#4de2ad]/[0.07] px-3 text-xs font-medium text-[#82e8c2] transition hover:bg-[#4de2ad]/[0.12] md:inline-flex"
