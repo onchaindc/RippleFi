@@ -230,6 +230,21 @@ export function productErrorMessage(
     return "The wallet didn't confirm the request. Open the wallet popup and approve it, or try again.";
   }
 
+  // Missing server-side configuration (e.g. the mainnet Hyperliquid signer)
+  // is an actionable setup error, not a technical crash. The env var name in
+  // the message is ALL_CAPS which would otherwise trip the technical filter
+  // below and collapse into the generic fallback - so surface it explicitly
+  // with the exact variable to add.
+  const missingConfig = message.match(
+    /Hyperliquid protection is not configured:\s*([A-Z0-9_]+) is missing\.?/i,
+  );
+  if (missingConfig) {
+    return `Hyperliquid protection isn't configured for this network yet - add ${missingConfig[1]} to the project environment and redeploy.`;
+  }
+  if (/hyperliquid protection is not configured/i.test(message)) {
+    return "Hyperliquid protection isn't configured for this network yet - check the signer environment variables and redeploy.";
+  }
+
   const looksTechnical =
     /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/.test(message) ||
     /(?:typeerror|referenceerror|syntaxerror|stack trace|at \w+\s*\(|status code|internal server error)/i.test(
