@@ -555,7 +555,7 @@ export function AutoHedgePanel({
                     ? "Protect after drop"
                     : "Protect below price"}
                 </span>
-                <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3 focus-within:border-[#71b9e6]/50">
+                <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3">
                   {triggerType === "absolute" ? (
                     <span className="mr-2 text-sm text-[#68737d]">$</span>
                   ) : null}
@@ -651,7 +651,7 @@ export function AutoHedgePanel({
                   <span className="text-xs font-medium text-[#89939e]">
                     Trailing distance
                   </span>
-                  <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3 focus-within:border-[#71b9e6]/50">
+                  <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3">
                     <input
                       value={trailingStopPercent}
                       onChange={(event) =>
@@ -871,7 +871,7 @@ export function AutoHedgePanel({
                   disabled={controlsLocked}
                   inputMode="decimal"
                   aria-label="Auto-close recovery percent"
-                  className="h-9 w-16 rounded-md border border-white/10 bg-[#080b0f]/70 px-2 text-center font-mono text-sm outline-none focus:border-[#71b9e6]/50 disabled:opacity-60"
+                  className="h-9 w-16 rounded-md border border-white/10 bg-[#080b0f]/70 px-2 text-center font-mono text-sm outline-none disabled:opacity-60"
                 />
                 <span className="text-[10px] text-[#68737d]">
                   % of the pre-drop price

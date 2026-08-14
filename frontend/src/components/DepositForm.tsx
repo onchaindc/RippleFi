@@ -95,7 +95,7 @@ export function DepositForm({
       <label className="block text-xs font-medium text-[#89939e]">
         Amount
       </label>
-      <div className="mt-2 flex h-12 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 focus-within:border-[#4de2ad]/60">
+      <div className="mt-2 flex h-12 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3">
         <input
           value={amount}
           onChange={(event) => {

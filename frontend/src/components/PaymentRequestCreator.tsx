@@ -69,7 +69,7 @@ export function PaymentRequestCreator({ vault }: { vault: VaultState }) {
       <div className="mt-3 grid gap-3 sm:grid-cols-[0.55fr_1fr]">
         <label className="min-w-0 text-xs text-[#89939e]">
           Amount
-          <div className="mt-1.5 flex h-11 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 focus-within:border-[#71b9e6]/60">
+          <div className="mt-1.5 flex h-11 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3">
             <input
               value={amount}
               onChange={(event) => {
@@ -86,7 +86,7 @@ export function PaymentRequestCreator({ vault }: { vault: VaultState }) {
         </label>
         <label className="min-w-0 text-xs text-[#89939e]">
           Note <span className="text-[#59636c]">(optional)</span>
-          <div className="mt-1.5 flex h-11 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 focus-within:border-[#71b9e6]/60">
+          <div className="mt-1.5 flex h-11 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3">
             <input
               value={note}
               onChange={(event) => {

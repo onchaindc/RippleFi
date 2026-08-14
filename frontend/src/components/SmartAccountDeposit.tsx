@@ -156,7 +156,7 @@ export function SmartAccountDeposit({ vault }: { vault: VaultState }) {
           >
             XRPL classic address
           </label>
-          <div className="mt-2 flex min-h-14 items-center gap-2 rounded-lg border border-white/10 bg-[#080b0f] px-3 focus-within:border-[#f2b84b]/60">
+          <div className="mt-2 flex min-h-14 items-center gap-2 rounded-lg border border-white/10 bg-[#080b0f] px-3">
             <input
               id="xrpl-owner"
               value={xrplAddress}
@@ -246,7 +246,7 @@ export function SmartAccountDeposit({ vault }: { vault: VaultState }) {
           >
             Deposit amount
           </label>
-          <div className="mt-2 flex h-14 items-center rounded-lg border border-white/10 bg-[#080b0f] px-3 focus-within:border-[#4de2ad]/60">
+          <div className="mt-2 flex h-14 items-center rounded-lg border border-white/10 bg-[#080b0f] px-3">
             <input
               id="smart-deposit-amount"
               value={amount}

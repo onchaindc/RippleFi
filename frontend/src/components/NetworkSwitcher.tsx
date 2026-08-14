@@ -77,7 +77,7 @@ export function NetworkSwitcher({ mobile = false }: { mobile?: boolean }) {
           switchChain({ chainId: Number(event.target.value) as 14 | 114 })
         }
         disabled={isPending}
-        className="h-10 appearance-none rounded-lg border border-white/10 bg-[#11151a] pl-9 pr-9 text-xs text-[#cbd2d7] outline-none focus:border-[#4de2ad]/50 disabled:opacity-50"
+        className="h-10 appearance-none rounded-lg border border-white/10 bg-[#11151a] pl-9 pr-9 text-xs text-[#cbd2d7] outline-none disabled:opacity-50"
       >
         {!isSupportedChainId(chainId) ? (
           <option value="">Unsupported network</option>

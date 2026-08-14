@@ -78,7 +78,7 @@ export function SmartAccountSpend({ vault }: { vault: VaultState }) {
       <div className="p-4 sm:p-5">
         <label className="text-xs text-[#89939e]">
           XRPL classic address
-          <div className="mt-1.5 flex h-12 items-center gap-2 rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 focus-within:border-[#71b9e6]/55">
+          <div className="mt-1.5 flex h-12 items-center gap-2 rounded-lg border border-white/10 bg-[#080b0f]/85 px-3">
             <input
               value={xrplAddress}
               onChange={(event) => {
@@ -155,12 +155,12 @@ export function SmartAccountSpend({ vault }: { vault: VaultState }) {
                 setInstruction(null);
               }}
               placeholder="0x..."
-              className="mt-1.5 h-11 w-full rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 font-mono text-xs outline-none focus:border-[#71b9e6]/55"
+              className="mt-1.5 h-11 w-full rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 font-mono text-xs outline-none"
             />
           </label>
           <label className="text-xs text-[#89939e]">
             Amount
-            <div className="mt-1.5 flex h-11 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 focus-within:border-[#71b9e6]/55">
+            <div className="mt-1.5 flex h-11 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3">
               <input
                 value={amount}
                 onChange={(event) => {

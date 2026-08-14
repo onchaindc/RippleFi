@@ -184,7 +184,7 @@ export function SpendPay({ vault }: { vault: VaultState }) {
             className={`mt-2 flex h-12 items-center rounded-lg border bg-[#080b0f]/85 px-3 ${
               recipient && !recipientIsValid
                 ? "border-[#df6b6b]/60"
-                : "border-white/10 focus-within:border-[#f2b84b]/60"
+                : "border-white/10"
             }`}
           >
             <input
@@ -214,7 +214,7 @@ export function SpendPay({ vault }: { vault: VaultState }) {
           >
             Amount
           </label>
-          <div className="mt-2 flex h-12 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3 focus-within:border-[#f2b84b]/60">
+          <div className="mt-2 flex h-12 items-center rounded-lg border border-white/10 bg-[#080b0f]/85 px-3">
             <input
               id="payment-amount"
               value={amount}
