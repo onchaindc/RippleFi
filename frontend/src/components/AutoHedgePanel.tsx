@@ -463,7 +463,7 @@ export function AutoHedgePanel({
                   <Shield aria-hidden="true" size={13} />
                 )}
                 {autoHedge.isHyperliquidBusy
-                  ? "Waiting for approval"
+                  ? "Approve in your wallet…"
                   : hyperliquidNeedsApproval
                     ? "Approve protection"
                     : "Enable Hyperliquid protection"}

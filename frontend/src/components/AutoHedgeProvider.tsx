@@ -70,7 +70,12 @@ type ArmRuleInput = {
 // Wallet signatures are user-paced: a popup can stay unopened or unanswered for
 // minutes. A hard timeout turns that silent stall into an explicit error the
 // UI can show, instead of leaving the button stuck on "Waiting for approval".
+// Antivirus/firewall false positives on Hyperliquid's API (e.g. Avast flagging
+// it as phishing) freeze the wallet's own popup, so the hint names the exact
+// domains to whitelist.
 const WALLET_SIGNATURE_TIMEOUT_MS = 120_000;
+const WALLET_SIGNATURE_TIMEOUT_HINT =
+  "The wallet request wasn't confirmed in time. If the wallet popup is stuck loading, your antivirus/firewall may be blocking the Hyperliquid API - whitelist api.hyperliquid-testnet.xyz and api.hyperliquid.xyz, then retry.";
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -273,7 +278,7 @@ async function signHyperliquidAction(
       // request object, so cast to its parameter type.
     } as unknown as SignTypedDataParameters),
     WALLET_SIGNATURE_TIMEOUT_MS,
-    "The wallet request didn't open or wasn't answered in time. Open your wallet and try again.",
+    WALLET_SIGNATURE_TIMEOUT_HINT,
   );
   console.info("[RippleFI] Hyperliquid signature received", {
     walletChainId,
@@ -661,13 +666,17 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
         return null;
       }
       const issuedAt = Date.now();
-      const signature = await signMessageAsync({
-        message: buildAutoHedgeAuthMessage({
-          chainId: activeChainId,
-          issuedAt,
-          wallet: address,
+      const signature = await withTimeout(
+        signMessageAsync({
+          message: buildAutoHedgeAuthMessage({
+            chainId: activeChainId,
+            issuedAt,
+            wallet: address,
+          }),
         }),
-      });
+        WALLET_SIGNATURE_TIMEOUT_MS,
+        WALLET_SIGNATURE_TIMEOUT_HINT,
+      );
       const response = await fetch("/api/auto-hedge/session", {
         body: JSON.stringify({
           chainId: activeChainId,
