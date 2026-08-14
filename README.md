@@ -67,11 +67,22 @@ Accounts.
 ### Auto-Hedge
 
 - Live XRP/USD price reads from Flare FTSO v2.
-- Absolute-price and percentage-drop triggers.
+- Absolute-price and percentage-drop triggers, plus trailing-stop and
+  multi-tranche ladder trigger modes.
+- Per-rule leverage (1-50x) and cross/isolated margin applied on Hyperliquid
+  before each short opens.
+- Optional auto-close: buys the hedge back automatically when XRP recovers
+  within a chosen distance of the pre-drop price.
+- Optional re-arm: after the hedge closes, the rule re-arms from the current
+  price so the next drop stays protected.
+- Live open-position card: entry, mark, size, unrealized PnL, leverage, and
+  liquidation price, with a one-tap reduce-only close.
+- Dedicated Auto-Hedge page; the dashboard keeps a compact protection summary.
 - Wallet-and-chain scoped rules shared across devices.
 - Structured hedge intents and visible execution lifecycle.
 - `record-intent-v1` safe fallback adapter.
-- Guarded Hyperliquid XRP perpetual execution.
+- Guarded Hyperliquid XRP perpetual execution, including a reduce-only
+  `/v1/orders/close` signer endpoint for closing hedges.
 - Separate testnet proof mode and mainnet enable controls.
 - Venue-aware XRP size precision and minimum-notional validation.
 

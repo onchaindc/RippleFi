@@ -15,7 +15,7 @@ export default function WithdrawPage() {
       accent="blue"
       activityScope="withdraw"
       eyebrow="Vault action"
-      title="Withdraw FXRP"
+      title="Redeem FXRP"
       vault={vault}
       description="Redeem spend-ready assets from your RippleFI vault back to FXRP."
       metrics={[

@@ -18,13 +18,13 @@ export default function DepositPage() {
     <ActivityPageLayout
       accent="green"
       activityScope="deposit"
-      eyebrow="Earn with FXRP"
-      title="Deposit FXRP"
+      eyebrow="Vault action"
+      title="Earn with FXRP"
       vault={vault}
       description={
         selectedIsFirelight
           ? "Stake FXRP with Firelight and receive stXRP."
-          : "Deposit into RippleFI and keep your position ready to withdraw or spend."
+          : "Put FXRP to work in the vault and keep it ready to redeem or spend."
       }
       metrics={[
         {

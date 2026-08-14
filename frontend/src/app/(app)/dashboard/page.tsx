@@ -127,7 +127,7 @@ export default function Home() {
               <ArrowDownToLine aria-hidden="true" size={18} />
             </span>
             <span className="mt-4 block text-sm font-semibold">
-              Add FXRP
+              Earn
             </span>
             <span className="mt-1 block text-xs leading-5 text-[#747f89]">
               Deposit into Upshift or Firelight.
@@ -142,7 +142,7 @@ export default function Home() {
               <ArrowUpFromLine aria-hidden="true" size={18} />
             </span>
             <span className="mt-4 block text-sm font-semibold">
-              Withdraw
+              Redeem
             </span>
             <span className="mt-1 block text-xs leading-5 text-[#747f89]">
               Return spend-ready vault assets.

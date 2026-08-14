@@ -31,8 +31,8 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/deposit", label: "Deposit", icon: ArrowDownToLine },
-  { href: "/withdraw", label: "Withdraw", icon: ArrowUpFromLine },
+  { href: "/deposit", label: "Earn", icon: ArrowDownToLine },
+  { href: "/withdraw", label: "Redeem", icon: ArrowUpFromLine },
   { href: "/spend", label: "Spend / Pay", icon: CircleDollarSign },
   { href: "/auto-hedge", label: "Auto-Hedge", icon: ShieldCheck },
   { href: "/smart-accounts", label: "Smart Accounts", icon: Network },
@@ -123,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="relative isolate flex min-h-screen min-w-0 flex-col overflow-x-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] text-[#f5f7f8] md:pb-0">
+    <div className="relative isolate flex min-h-screen min-w-0 flex-col overflow-x-clip pb-[calc(4rem+env(safe-area-inset-bottom))] text-[#f5f7f8] md:pb-0">
       <BackgroundLayer />
       <header
         className="sticky top-0 z-40 border-b border-white/[0.06] bg-[rgba(15,15,20,0.55)] backdrop-blur-[12px]"
