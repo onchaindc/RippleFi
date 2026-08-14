@@ -9,6 +9,7 @@ import {
   Link2,
   Lock,
   RadioTower,
+  Send,
   Shield,
   Unplug,
   Zap,
@@ -121,6 +122,8 @@ export function AutoHedgePanel({
     { threshold: "20", sizePercent: 50 },
   ]);
   const [alertEmail, setAlertEmail] = useState("");
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [testEmailNote, setTestEmailNote] = useState("");
   const [autoCloseEnabled, setAutoCloseEnabled] = useState(false);
   const [autoClosePercent, setAutoClosePercent] = useState(2);
   const [rearm, setRearm] = useState(false);
@@ -197,21 +200,29 @@ export function AutoHedgePanel({
     const key = `${position.coin}:${liquidationPx}`;
     if (liqNotifiedRef.current !== key && alertEmail.trim()) {
       liqNotifiedRef.current = key;
-      void fetch("/api/auto-hedge/alert", {
-        body: JSON.stringify({
-          chainId: autoHedge.chainId,
-          detail: `${position.coin} hedge is ${pct.toFixed(1)}% from liquidation (mark $${displayPrice(String(markPx))}, liq $${displayPrice(String(liquidationPx))}).`,
-          kind: "liquidation-warning",
-          to: alertEmail.trim(),
-          wallet: vault.address,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      }).catch((error) =>
-        console.error("[RippleFI] Alert request failed", error),
-      );
+      void autoHedge.sessionToken().then((token) => {
+        if (!token) {
+          return;
+        }
+        return fetch("/api/auto-hedge/alert", {
+          body: JSON.stringify({
+            chainId: autoHedge.chainId,
+            detail: `${position.coin} hedge is ${pct.toFixed(1)}% from liquidation (mark $${displayPrice(String(markPx))}, liq $${displayPrice(String(liquidationPx))}).`,
+            kind: "liquidation-warning",
+            to: alertEmail.trim(),
+            wallet: vault.address,
+          }),
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        }).catch((error) =>
+          console.error("[RippleFI] Alert request failed", error),
+        );
+      });
     }
-  }, [alertEmail, autoHedge.chainId, position, vault.address]);
+  }, [alertEmail, autoHedge, position, vault.address]);
   const triggeredIntent = rule?.lastIntent;
   const activeTriggerMode = rule?.triggerMode ?? triggerMode;
   const nextTrancheIndex = normalizedRule?.nextTrancheIndex ?? 0;
@@ -382,6 +393,63 @@ export function AutoHedgePanel({
       const detail = readError(error);
       setMessage(detail);
       toast(detail, "error");
+    }
+  }
+
+  async function sendTestEmail() {
+    const email = alertEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      const notice = "Enter a valid email address first.";
+      setTestEmailNote(notice);
+      toast(notice, "warning");
+      return;
+    }
+    setTestingEmail(true);
+    setTestEmailNote("");
+    try {
+      const token = await autoHedge.authorizeDevice();
+      if (!token) {
+        throw new Error("Approve this device before sending alerts.");
+      }
+      const response = await fetch("/api/auto-hedge/alert/test", {
+        body: JSON.stringify({
+          chainId: autoHedge.chainId,
+          to: email,
+          wallet: vault.address,
+        }),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+        from?: string;
+        sandbox?: boolean;
+        sent?: boolean;
+      } | null;
+      if (!response.ok || !body?.sent) {
+        throw new Error(body?.error || "The test email could not be sent.");
+      }
+      if (body.sandbox) {
+        const note =
+          "Test email sent from Resend's sandbox sender — it only delivers to the email on your Resend account. Verify a domain in Resend and set ALERT_EMAIL_FROM to send to any address.";
+        setTestEmailNote(note);
+        toast(
+          "Test email sent — check the inbox of your Resend account email",
+          "warning",
+        );
+      } else {
+        setTestEmailNote("Test email sent — check your inbox.");
+        toast("Test email sent — check your inbox.", "success");
+      }
+    } catch (error) {
+      const detail = readError(error);
+      setTestEmailNote(detail);
+      toast(detail, "error");
+    } finally {
+      setTestingEmail(false);
     }
   }
 
@@ -980,7 +1048,10 @@ export function AutoHedgePanel({
               <div className="mt-2 flex h-11 items-center rounded-md border border-white/10 bg-[#080b0f]/70 px-3">
                 <input
                   value={alertEmail}
-                  onChange={(event) => setAlertEmail(event.target.value)}
+                  onChange={(event) => {
+                    setAlertEmail(event.target.value);
+                    setTestEmailNote("");
+                  }}
                   disabled={controlsLocked}
                   type="email"
                   inputMode="email"
@@ -990,6 +1061,33 @@ export function AutoHedgePanel({
                   className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:text-[#5f6972] disabled:opacity-60"
                 />
               </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => void sendTestEmail()}
+                  disabled={testingEmail || controlsLocked}
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-[#71b9e6]/30 px-3 text-[11px] font-semibold text-[#9bd3f5] transition hover:bg-[#71b9e6]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {testingEmail ? (
+                    <LoaderCircle
+                      aria-hidden="true"
+                      size={12}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Send aria-hidden="true" size={12} />
+                  )}
+                  {testingEmail ? "Sending…" : "Send test email"}
+                </button>
+                <span className="text-[10px] leading-4 text-[#5f6972]">
+                  Verifies the alert pipeline instantly.
+                </span>
+              </div>
+              {testEmailNote ? (
+                <p className="mt-1.5 text-[10px] leading-4 text-[#8f9aa3]">
+                  {testEmailNote}
+                </p>
+              ) : null}
             </label>
           </div>
         </div>

@@ -485,6 +485,22 @@ export default function DocsPage() {
                 }
               />
               <Qa
+                q="How do email alerts work?"
+                a={
+                  <>
+                    Add your email to the <strong className="font-semibold text-[#d7dcdf]">Email
+                    alerts</strong> field on the Auto-Hedge panel and tap{" "}
+                    <strong className="font-semibold text-[#d7dcdf]">Send test
+                    email</strong> to verify the pipeline instantly. From
+                    then on you get a message when a hedge opens, closes,
+                    or gets close to liquidation. With the default sandbox
+                    sender,                    Resend only delivers to your Resend account&apos;s own
+                    email until you verify a domain and set{" "}
+                    <Code>ALERT_EMAIL_FROM</Code>.
+                  </>
+                }
+              />
+              <Qa
                 q="Does 'Redeem' cost anything?"
                 a={
                   <>

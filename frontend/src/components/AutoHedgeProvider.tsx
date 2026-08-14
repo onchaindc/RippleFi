@@ -334,11 +334,15 @@ function finalizeExecutionRule(
 
 type AutoHedgeContextValue = {
   arm: (input: ArmRuleInput) => Promise<void>;
+  // Existing Auto-Hedge session token, without prompting for a signature.
+  authorizeDevice: () => Promise<string | null>;
   chainId: SupportedChainId;
   closeHedge: () => Promise<void>;
   disarm: () => Promise<void>;
   disconnectHyperliquid: () => Promise<void>;
   enableHyperliquid: () => Promise<void>;
+  // Ensure a session token exists, prompting for a wallet signature if needed.
+  sessionToken: () => Promise<string | null>;
   hyperliquidLink: HyperliquidLink | null;
   isClosing: boolean;
   isHyperliquidBusy: boolean;
@@ -1711,12 +1715,14 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AutoHedgeContextValue>(
     () => ({
       arm,
+      authorizeDevice: () => ensureSession(true),
       chainId: activeChainId,
       closeHedge,
       disarm,
       disconnectHyperliquid,
       enableHyperliquid,
       hyperliquidLink,
+      sessionToken: () => ensureSession(false),
       isClosing,
       isHyperliquidBusy,
       isExecuting,
@@ -1734,6 +1740,7 @@ export function AutoHedgeProvider({ children }: { children: ReactNode }) {
       disarm,
       disconnectHyperliquid,
       enableHyperliquid,
+      ensureSession,
       hyperliquidLink,
       isClosing,
       isHyperliquidBusy,

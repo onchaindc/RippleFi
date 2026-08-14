@@ -18,6 +18,18 @@ function fromAddress() {
   );
 }
 
+// Lets the UI explain delivery constraints: with the sandbox sender
+// (onboarding@resend.dev) Resend only delivers to the account owner's
+// address until a real domain is verified and ALERT_EMAIL_FROM is set.
+export function alertEmailConfig() {
+  const from = fromAddress();
+  return {
+    configured: isAlertEmailConfigured(),
+    from,
+    sandbox: from.includes("onboarding@resend.dev"),
+  };
+}
+
 export async function sendAlertEmail({
   subject,
   text,
